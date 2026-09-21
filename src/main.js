@@ -163,6 +163,7 @@ function activate(index) {
   if (previous && previous !== activeWord) refreshCard(previous);
   refreshCard(activeWord);
   $('#spelling-input').focus({ preventScroll: true });
+  pronunciation.speak(activeWord);
   $('#spelling-input').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 function reveal() {

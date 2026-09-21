@@ -112,3 +112,9 @@
 - GitHub Actions 运行 https://github.com/ClausLiang/english-learning/actions/runs/35571411654 ：测试、构建、产物上传全部成功；部署步骤失败。
 - 部署错误为 HTTP 404，并明确提示先启用 GitHub Pages；网站尚未正式发布。
 - 当前需要在 GitHub 完成仓库改名为 shiyu，以及 Settings → Pages → Source 选择 GitHub Actions。管理登录不可用，需用户完成这两项设置后再继续更新 origin 和发布验证。
+
+## 2026-09-21 · 仓库改名完成，重新发布
+
+- 用户已完成 GitHub 仓库改名和 Pages 设置；API 确认仓库为 `ClausLiang/shiyu` 且 `has_pages=true`。
+- 本地 origin 已更新为 `git@github.com:ClausLiang/shiyu.git`，与远程 main 同步；本地文件夹名称保持不变。
+- 通过本次提交重新触发 Pages 工作流，等待部署完成后核验线上页面。

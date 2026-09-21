@@ -12,8 +12,8 @@ https://clausliang.github.io/shiyu/
 
 ## 首次发布
 
-1. 已选择重命名现有仓库：在 GitHub 打开 `ClausLiang/english-learning`，进入 **Settings → General → Repository name**，将名称改为 `shiyu` 并点击 **Rename**。
-2. 若采用重命名，在本地更新远程地址：
+1. 仓库已从 `ClausLiang/english-learning` 重命名为 `ClausLiang/shiyu`；本地目录保持 `english-learning`。
+2. 本地远程地址已更新；其他旧检出可执行：
 
    ```sh
    git remote set-url origin git@github.com:ClausLiang/shiyu.git

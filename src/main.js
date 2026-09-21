@@ -1,5 +1,6 @@
 import { chapterCount, chapterWords, isCorrect, recordAttempt, completedCount, validateDictionary, validateProgress, mergeProgress } from './learning.js';
 import { STORAGE_KEY, loadProgress, saveProgress } from './storage.js';
+import { createPronunciation } from './pronunciation.js';
 
 const icons = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H4z"/><path d="M13 7a3 3 0 0 1 3-3h4v14h-3a4 4 0 0 0-4 3"/>',
@@ -14,6 +15,7 @@ const icons = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
   spark: '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  speaker: '<path d="M11 4 6 8H3v8h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
 };
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -21,6 +23,21 @@ const $ = selector => document.querySelector(selector);
 let words, progress, storage, storageWarning = '', storageBlocked = false;
 let activeWord = null;
 let latestCorrect = null;
+let speakingWord = null;
+const pronunciation = createPronunciation({
+  synthesis: window.speechSynthesis,
+  Utterance: window.SpeechSynthesisUtterance,
+  onState(word, message) {
+    speakingWord = word;
+    document.querySelectorAll('.pronounce').forEach(button => {
+      const playing = words[Number(button.closest('.word-card').dataset.index)].name === word;
+      button.classList.toggle('playing', playing);
+      button.setAttribute('aria-busy', String(playing));
+    });
+    const notice = $('#pronunciation-message');
+    if (notice) { notice.textContent = message; notice.hidden = !message; }
+  },
+});
 
 async function init() {
   try {
@@ -73,6 +90,7 @@ function renderShell() {
         <section class="chapter-section" aria-labelledby="chapter-heading">
           <div class="chapter-toolbar"><div class="chapter-title"><h2 id="chapter-heading"></h2><span id="word-range"></span></div><div class="chapter-actions"><button class="secondary" id="chapter-open">${icon('grid')}章节目录</button><button class="primary" id="practice">开始本章练习 ${icon('arrow')}</button></div></div>
           <div class="instructions">${icon('info')}<span>点击卡片，试着拼出单词。<span class="desktop-tip"> 输入后按 <kbd>Enter</kbd> 检查，按 <kbd>Esc</kbd> 查看单词。</span></span><span class="legend"><span class="green-dot"></span>已练习</span></div>
+          <div id="pronunciation-message" class="warning" role="status" hidden></div>
           <div class="word-grid" id="word-grid" tabindex="-1"></div>
           <div class="chapter-finish" id="chapter-finish" hidden>${icon('check')}这一章的单词都练习过了。继续下一章，或再巩固一遍！</div>
           <div class="pagination"><span id="page-summary"></span><div><button class="secondary" id="previous">${icon('chevron', 'reverse')}上一章</button><span id="page-indicator"></span><button class="secondary" id="next">下一章 ${icon('chevron')}</button></div></div>
@@ -124,10 +142,11 @@ function cardContent(word, number) {
   const complete = Boolean(progress.words[word.name]?.completed);
   const active = activeWord === word.name;
   const status = complete ? `<span class="word-status done">${icon('check')}已练习</span>` : '<span class="word-status">待练习</span>';
+  const header = `<div class="card-top card-header"><span class="word-number">${String(number).padStart(3, '0')}</span><div class="card-tools">${active ? '<span class="writing-label">拼写中</span>' : status}<button type="button" class="pronounce ${speakingWord === word.name ? 'playing' : ''}" aria-label="${active ? '播放当前单词发音' : `播放 ${escape(word.name)} 的发音`}" title="播放发音" aria-busy="${speakingWord === word.name}">${icon('speaker')}</button></div></div>`;
   if (active) {
-    return `<div class="active-card"><div class="card-top"><span class="word-number">${String(number).padStart(3, '0')}</span><span class="writing-label">拼写中</span></div><div class="word-name blurred" aria-hidden="true">${escape(word.name)}</div><div class="translation">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span><button type="button" class="reveal">查看单词</button></div></form></div>`;
+    return `${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true">${escape(word.name)}</div><div class="translation">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span><button type="button" class="reveal">查看单词</button></div></form></div>`;
   }
-  return `<button class="card-face ${complete ? 'is-complete' : ''}" aria-label="练习 ${escape(word.name)}"><span class="card-top"><span class="word-number">${String(number).padStart(3, '0')}</span>${status}</span><span class="word-name">${escape(word.name)}</span><span class="phonetic">/${escape(word.usphone || word.ukphone)}/</span><span class="translation">${word.trans.map(escape).join('；')}</span><span class="card-bottom ${latestCorrect === word.name ? 'correct-message' : ''}">${latestCorrect === word.name ? `${icon('check')}拼写正确，记得很棒！` : `点击卡片，练习拼写 <span>↗</span>`}</span></button>`;
+  return `${header}<button class="card-face ${complete ? 'is-complete' : ''}" aria-label="练习 ${escape(word.name)}"><span class="word-name">${escape(word.name)}</span><span class="phonetic">/${escape(word.usphone || word.ukphone)}/</span><span class="translation">${word.trans.map(escape).join('；')}</span><span class="card-bottom ${latestCorrect === word.name ? 'correct-message' : ''}">${latestCorrect === word.name ? `${icon('check')}拼写正确，记得很棒！` : `点击卡片，练习拼写 <span>↗</span>`}</span></button>`;
 }
 function refreshCard(name) {
   const index = words.findIndex(w => w.name === name);
@@ -153,6 +172,7 @@ function reveal() {
   document.querySelector(`[data-index="${words.findIndex(w => w.name === previous)}"] .card-face`)?.focus({ preventScroll: true });
 }
 function changeChapter(chapter) {
+  pronunciation.stop();
   progress.chapter = Math.max(1, Math.min(chapterCount(words), chapter));
   activeWord = null;
   latestCorrect = null;
@@ -172,7 +192,12 @@ function showChapters() {
 }
 function bindEvents() {
   $('#word-grid').addEventListener('click', event => {
-    if (event.target.closest('.card-face')) activate(Number(event.target.closest('.word-card').dataset.index));
+    const card = event.target.closest('.word-card');
+    if (event.target.closest('.pronounce')) {
+      pronunciation.speak(words[Number(card.dataset.index)].name);
+      return;
+    }
+    if (event.target.closest('.card-face') || (event.target.closest('.card-header') && !card.classList.contains('active'))) activate(Number(card.dataset.index));
     if (event.target.closest('.reveal')) reveal();
   });
   $('#word-grid').addEventListener('keydown', event => {
@@ -255,6 +280,8 @@ function bindEvents() {
     // Keep an in-progress answer intact while reflecting progress from another tab.
     if (!activeWord) renderChapter(); else updateStats();
   });
+  window.addEventListener('pagehide', () => pronunciation.stop());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pronunciation.stop(); });
 }
 
 init();

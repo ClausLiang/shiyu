@@ -105,3 +105,10 @@
 - 准备阶段 12 项测试、静态构建及 /shiyu/ 子目录资源路径检查均通过。
 - 已通过 SSH 确认远程仓库为空且为公开仓库。浏览器访问 GitHub 与设备登录均超时，当前没有管理凭据；远程改名、启用 Pages 与正式发布尚未完成。
 - 预期发布地址为 https://clausliang.github.io/shiyu/ ，实际需以 GitHub 部署成功输出为准。未改动现有本地服务状态。
+
+### 首次远程执行结果
+
+- 首次应用提交 `76d4e3c` 已推送到 `ClausLiang/english-learning` 的 main。
+- GitHub Actions 运行 https://github.com/ClausLiang/english-learning/actions/runs/35571411654 ：测试、构建、产物上传全部成功；部署步骤失败。
+- 部署错误为 HTTP 404，并明确提示先启用 GitHub Pages；网站尚未正式发布。
+- 当前需要在 GitHub 完成仓库改名为 shiyu，以及 Settings → Pages → Source 选择 GitHub Actions。管理登录不可用，需用户完成这两项设置后再继续更新 origin 和发布验证。

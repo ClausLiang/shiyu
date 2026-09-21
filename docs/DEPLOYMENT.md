@@ -8,7 +8,9 @@
 
 https://clausliang.github.io/shiyu/
 
-这是预期地址，只有部署成功后才能访问。若仓库仍叫 `english-learning`，默认地址则是 `/english-learning/`；在该仓库产物中再套一层 `shiyu` 文件夹会得到 `/english-learning/shiyu/`，不能实现所需路径。
+已于 2026-09-21 正式部署成功。当前默认地址返回 HTTP 301，跳转到 https://liangyonggang.com/shiyu/ ，已在浏览器验证页面加载、拼写检查及刷新恢复进度。
+
+发布记录：[Deploy GitHub Pages #2](https://github.com/ClausLiang/shiyu/actions/runs/35572368130)，发布提交为 `941127520130ab5357ee2423121b98df00b570a9`。
 
 ## 首次发布
 
@@ -31,5 +33,5 @@ https://clausliang.github.io/shiyu/
 - 入口中的脚本、样式和图标使用相对路径；词库请求以模块 URL 为基准，因此无需把 `/shiyu/` 写死到源码中。
 - 之后推送到 `main` 会自动更新网站，也可以使用工作流的 **Run workflow** 手动发布。
 - 线上进度与本地地址的记录独立；可从本地导出备份，在 Pages 网站导入。
-- localStorage 按协议、主机和端口隔离，不按 URL 路径隔离；同一 `clausliang.github.io` 下的其他项目需要使用各自的存储键。
+- localStorage 按协议、主机和端口隔离，不按 URL 路径隔离；当前进度保存在最终访问域名 `liangyonggang.com` 下，同域名的其他项目需要使用各自的存储键。以后切换域名时，可导出再导入备份。
 - GitHub Pages 仅托管静态文件，账号和远端同步需后续另接服务。

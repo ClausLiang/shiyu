@@ -31,7 +31,7 @@
 - 浏览器检查期间无 error / warn 日志。
 - `npm run build` 生成静态产物 `dist/`。
 
-### 当前边界
+### MVP 完成时的边界（发布状态见后续记录）
 
 - 未部署公网，未实现账号、云端同步、发音、错词复习、语句和文章学习。
 - 本地记录按浏览器和地址隔离；备份合并保留当前章节，正确 / 尝试次数取较大值，不进行跨设备事件级累加。
@@ -118,3 +118,13 @@
 - 用户已完成 GitHub 仓库改名和 Pages 设置；API 确认仓库为 `ClausLiang/shiyu` 且 `has_pages=true`。
 - 本地 origin 已更新为 `git@github.com:ClausLiang/shiyu.git`，与远程 main 同步；本地文件夹名称保持不变。
 - 通过本次提交重新触发 Pages 工作流，等待部署完成后核验线上页面。
+
+## 2026-09-21 · GitHub Pages 正式发布成功
+
+- 仓库为 `ClausLiang/shiyu`，本地 origin 已同步更新；本地目录继续使用 `english-learning`。
+- 发布提交 `941127520130ab5357ee2423121b98df00b570a9` 的 [GitHub Actions #2](https://github.com/ClausLiang/shiyu/actions/runs/35572368130) 已完成且结果为 success，测试、构建和部署通过。
+- 默认地址 https://clausliang.github.io/shiyu/ 返回 HTTP 301，跳转到 https://liangyonggang.com/shiyu/ 。已验证最终地址正常展示拾语页面、2607 词 / 131 章概览和第一章 20 张卡片。
+- 线上浏览器验证：点击 cancel 卡片进入输入状态，提交 cancle 显示拼写错误，改为 cancel 后计为已练习，刷新后仍保留 1 词完成记录。测试记录仅保存在本次验证浏览器中，没有清空既有数据。
+- 更新 README 和部署文档的正式地址与状态。当前线上进度属于最终访问域名，与本地服务的进度独立，可通过 JSON 备份导入。
+- 本次收尾仅修改文档，核对内容、链接和差异，未重复运行本地应用测试或构建，未启动或停止本地服务。
+- 后续推送 main 会自动发布；账号、云端同步、发音、复习、语句及文章学习仍未实现。

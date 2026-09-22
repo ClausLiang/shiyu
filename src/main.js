@@ -145,7 +145,7 @@ function cardContent(word, number) {
   const header = `<div class="card-top card-header"><span class="word-number">${String(number).padStart(3, '0')}</span><div class="card-tools">${active ? '<span class="writing-label">拼写中</span>' : status}</div></div>`;
   const pronounce = `<button type="button" class="pronounce ${speakingWord === word.name ? 'playing' : ''}" aria-label="${active ? '播放当前单词发音' : `播放 ${escape(word.name)} 的发音`}" title="播放发音" aria-busy="${speakingWord === word.name}">${icon('speaker')}</button>`;
   if (active) {
-    return `<div class="card-body">${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true">${escape(word.name)}</div><div class="translation">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span><button type="button" class="reveal">查看单词</button></div></form></div></div>${pronounce}`;
+    return `<div class="card-body">${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true" title="点击返回查看单词">${escape(word.name)}</div><div class="translation" title="点击返回查看单词">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span></div></form></div></div>${pronounce}`;
   }
   return `<div class="card-body">${header}<button class="card-face ${complete ? 'is-complete' : ''}" aria-label="练习 ${escape(word.name)}"><span class="word-name">${escape(word.name)}</span><span class="phonetic">/${escape(word.usphone || word.ukphone)}/</span><span class="translation">${word.trans.map(escape).join('；')}</span><span class="card-bottom ${latestCorrect === word.name ? 'correct-message' : ''}">${latestCorrect === word.name ? `${icon('check')}拼写正确，记得很棒！` : `点击卡片，练习拼写 <span>↗</span>`}</span></button></div>${pronounce}`;
 }
@@ -199,8 +199,8 @@ function bindEvents() {
       pronunciation.speak(words[Number(card.dataset.index)].name);
       return;
     }
+    if (event.target.closest('.word-name.blurred, .active-card .translation')) { reveal(); return; }
     if (event.target.closest('.card-face') || (event.target.closest('.card-header') && !card.classList.contains('active'))) activate(Number(card.dataset.index));
-    if (event.target.closest('.reveal')) reveal();
   });
   $('#word-grid').addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeWord) { event.preventDefault(); reveal(); }

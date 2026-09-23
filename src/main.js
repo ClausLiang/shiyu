@@ -83,7 +83,7 @@ function renderShell() {
       </div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><div>学习空间 <span class="slash">/</span> <strong>单词学习</strong></div><button class="save-status" id="save-status" aria-label="进度与备份设置">${icon('check')}进度保存在此浏览器</button></header>
+      <header class="topbar"><div>学习空间 <span class="slash">/</span> <strong>单词学习</strong></div><div class="topbar-tools"><button class="float-progress" id="float-progress" aria-haspopup="dialog" title="查看章节目录与学习进度"><span class="float-ring" id="float-ring" aria-hidden="true">${icon('grid')}</span><span class="float-copy"><strong id="float-chapter">第 01 章</strong><small id="float-detail">0 / 20 词</small></span></button><button class="save-status" id="save-status" aria-label="进度与备份设置">${icon('check')}进度保存在此浏览器</button></div></header>
       <main>
         <section class="page-heading"><div><div class="eyebrow">A LITTLE EVERY DAY</div><h1>把单词，一点点变成你的。</h1><p>从一个单词开始，让每一次练习都有收获。</p></div><span class="edition">CET-4 学习计划</span></section>
         <section class="course-banner" aria-label="四级词汇学习概览">
@@ -130,7 +130,16 @@ function updateStats() {
   $('#progress-caption').textContent = total ? `已经积累 ${total} 个单词，继续保持。` : '慢慢来，每一个词都算数。';
   $('#chapter-finish').hidden = completed !== current.length;
   $('#practice').innerHTML = `${completed === current.length ? '再练习一遍' : completed ? '继续本章练习' : '开始本章练习'} ${icon('arrow')}`;
+  renderFloatProgress(current, completed, total);
   renderStorageStatus();
+}
+function renderFloatProgress(current, completed, total) {
+  const percent = Math.round(total / words.length * 100);
+  const done = completed === current.length;
+  $('#float-chapter').textContent = `第 ${String(progress.chapter).padStart(2, '0')} 章`;
+  $('#float-detail').textContent = done ? `已完成 · 全书 ${percent}%` : `${completed} / ${current.length} 词 · 全书 ${percent}%`;
+  $('#float-progress').classList.toggle('is-done', done);
+  $('#float-progress').setAttribute('aria-label', `第 ${progress.chapter} 章，本章 ${completed} / ${current.length} 词，全书进度 ${percent}%。打开章节目录`);
 }
 function renderChapter() {
   const current = chapterWords(words, progress.chapter);
@@ -311,6 +320,7 @@ function bindEvents() {
     activate(words.indexOf(word));
   });
   $('#chapter-open').addEventListener('click', showChapters);
+  $('#float-progress').addEventListener('click', showChapters);
   $('#chapter-picker').addEventListener('click', event => {
     const button = event.target.closest('[data-chapter]');
     if (button) { changeChapter(Number(button.dataset.chapter)); $('#chapter-dialog').close(); }

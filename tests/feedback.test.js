@@ -11,7 +11,7 @@ function setup({ state = 'running', failOnCreate = false } = {}) {
     constructor() { this.type = ''; this.frequency = param(); this.starts = []; }
     connect() {}
     start(at) { this.starts.push(at); }
-    stop() { this.stopped = true; }
+    stop(at) { this.stopsAt = at; }
   }
   class AudioContextClass {
     constructor() {
@@ -85,13 +85,18 @@ test('复用外部传入的上下文，不新建实例', () => {
 test('章节完成时播放更长的庆祝旋律，与单词音效明显不同', () => {
   const fixture = setup();
   const chime = createChime({ AudioContextClass: fixture.AudioContextClass });
+  chime.play();
+  const wordTones = fixture.tones.splice(0);
   assert.equal(chime.playFanfare(), true);
   // 庆祝旋律音符更多、跨度更长，听感上不会和单词音效混淆。
   assert.ok(fixture.tones.length > 3, '庆祝旋律音符数应多于单词音效的 3 个');
-  const lastEnd = Math.max(...fixture.tones.map(osc => osc.frequency.value));
-  assert.ok(lastEnd >= 1000, '庆祝旋律应包含更高的音');
+  const highestFrequency = Math.max(...fixture.tones.map(osc => osc.frequency.value));
+  assert.ok(highestFrequency >= 1000, '庆祝旋律应包含高音');
   const offsets = fixture.tones.map(osc => osc.starts[0]).sort((a, b) => a - b);
-  assert.ok(offsets[offsets.length - 1] > 0.3, '庆祝旋律的总时长应明显长于单词音效');
+  assert.ok(offsets.at(-1) - offsets[0] > 0.3, '音符应分散在至少 0.3 秒内起奏');
+  const duration = tones => Math.max(...tones.map(osc => osc.stopsAt)) - Math.min(...tones.map(osc => osc.starts[0]));
+  assert.ok(duration(fixture.tones) > duration(wordTones) * 2, '庆祝旋律实际持续时间应超过单词音效的两倍');
+  fixture.tones.forEach(osc => assert.ok(osc.stopsAt > osc.starts[0], '每个音符都应安排在开始之后停止'));
 });
 
 test('庆祝旋律与单词音效共用同一音频上下文', () => {

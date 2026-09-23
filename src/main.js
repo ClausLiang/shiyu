@@ -26,8 +26,6 @@ let activeWord = null;
 let cursorWord = null;
 let latestCorrect = null;
 let speakingWord = null;
-// 本轮开始前本章是否已全部完成，用于区分「首次学习」与「复习」两种庆祝场景。
-let chapterWasComplete = false;
 const pronunciation = createPronunciation({
   synthesis: window.speechSynthesis,
   Utterance: window.SpeechSynthesisUtterance,
@@ -174,11 +172,6 @@ function refreshCard(name) {
 }
 function activate(index) {
   const previous = activeWord;
-  // 从查看态进入即为新一轮的开始，此时记录本章是否已全部学完（复习场景）。
-  if (!previous) {
-    const current = chapterWords(words, progress.chapter);
-    chapterWasComplete = completedCount(progress, current) === current.length;
-  }
   activeWord = words[index].name;
   cursorWord = activeWord;
   latestCorrect = null;
@@ -224,20 +217,13 @@ function checkSpelling() {
 }
 function advanceToNext() {
   // 拼写状态下按 Tab 先检查拼写，只有拼对才切到下一个单词。
-  let celebrate = false;
   if (activeWord && $('#spelling-input')) {
-    const current = chapterWords(words, progress.chapter);
-    const spelled = activeWord;
-    const isLastWord = spelled === current[current.length - 1].name;
     if (checkSpelling() !== 'correct') return;
-    // 只有拼对本章最后一个单词时才可能庆祝，且分两种场景：
-    // 1. 复习：本轮开始前本章就已全部学完，走完整轮即庆祝；
-    // 2. 首次学习：本轮开始前还有单词未完成，必须这次补齐所有缺口（全章完成）才庆祝，
-    //    中途漏词则不庆祝。
-    celebrate = isLastWord && (chapterWasComplete || completedCount(progress, current) === current.length);
   }
   const current = chapterWords(words, progress.chapter);
-  if (celebrate) {
+  // 共用最近一次拼对结果，兼容直接 Tab、Enter 或按钮检查后再 Tab。
+  // 还需游标停在末词；庆祝后清空游标，避免关闭弹窗后重复触发。
+  if (cursorWord === current.at(-1).name && latestCorrect === cursorWord && completedCount(progress, current) === current.length) {
     celebrateChapter();
     return;
   }
@@ -273,7 +259,6 @@ function changeChapter(chapter) {
   activeWord = null;
   cursorWord = null;
   latestCorrect = null;
-  chapterWasComplete = false;
   persist();
   renderChapter();
   $('#announcement').textContent = `已切换到第 ${progress.chapter} 章`;
@@ -362,7 +347,7 @@ function bindEvents() {
       progress = mergeProgress(progress, incoming);
       activeWord = null;
       cursorWord = null;
-      chapterWasComplete = false;
+      latestCorrect = null;
       persist();
       renderChapter();
       $('#backup-message').textContent = storageWarning ? '进度已合并到当前页面，但尚未保存到浏览器，请导出备份。' : '进度已合并并保存，可以继续学习了。';

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>拾语 · 浏览器回归测试</title>
+<style>
+  body { font: 16px/1.6 system-ui; margin: 24px; }
+  button { padding: 8px 16px; }
+  iframe { display: block; height: 900px; border: 1px solid #ccc; }
+  .pass { color: #26734d; } .fail { color: #b42318; }
+</style>
+<h1>浏览器回归测试</h1>
+<p>使用专用端口 5174，测试结束后恢复该地址原有进度。运行期间请勿操作下方测试页面。</p>
+<button id="run">运行回归测试</button>
+<p id="summary" role="status">尚未运行</p>
+<ol id="results"></ol>
+<iframe id="app" title="测试中的拾语页面" width="1440"></iframe>
+<script type="module" src="./browser.js"></script>
+</html>

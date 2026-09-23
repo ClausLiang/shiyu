@@ -262,7 +262,14 @@ function changeChapter(chapter) {
   latestCorrect = null;
   persist();
   renderChapter();
+  focusChapterStart();
   $('#announcement').textContent = `已切换到第 ${progress.chapter} 章`;
+}
+function focusChapterStart() {
+  const card = document.querySelector('#word-grid .word-card');
+  if (!card) return;
+  card.scrollIntoView({ block: 'center', behavior: 'auto' });
+  card.querySelector('.card-face')?.focus({ preventScroll: true });
 }
 function showChapters() {
   $('#chapter-picker').innerHTML = Array.from({ length: chapterCount(words) }, (_, i) => {
@@ -309,7 +316,7 @@ function bindEvents() {
   $('#float-progress').addEventListener('click', showChapters);
   $('#chapter-picker').addEventListener('click', event => {
     const button = event.target.closest('[data-chapter]');
-    if (button) { changeChapter(Number(button.dataset.chapter)); $('#chapter-dialog').close(); }
+    if (button) { $('#chapter-dialog').close(); changeChapter(Number(button.dataset.chapter)); }
   });
   $('#chapter-done-next').addEventListener('click', event => {
     const target = Number(event.currentTarget.dataset.target) || 1;
@@ -318,8 +325,7 @@ function bindEvents() {
   });
   $('#chapter-done-review').addEventListener('click', () => {
     $('#chapter-done-dialog').close();
-    const current = chapterWords(words, progress.chapter);
-    activate(words.indexOf(current[0]));
+    focusChapterStart();
   });
   $('#chapter-done-close').addEventListener('click', () => {
     $('#chapter-done-dialog').close();

@@ -22,6 +22,7 @@ const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;
 const $ = selector => document.querySelector(selector);
 let words, progress, storage, storageWarning = '', storageBlocked = false;
 let activeWord = null;
+let cursorWord = null;
 let latestCorrect = null;
 let speakingWord = null;
 const pronunciation = createPronunciation({
@@ -160,6 +161,7 @@ function refreshCard(name) {
 function activate(index) {
   const previous = activeWord;
   activeWord = words[index].name;
+  cursorWord = activeWord;
   latestCorrect = null;
   if (previous && previous !== activeWord) refreshCard(previous);
   refreshCard(activeWord);
@@ -173,10 +175,23 @@ function reveal() {
   refreshCard(previous);
   document.querySelector(`[data-index="${words.findIndex(w => w.name === previous)}"] .card-face`)?.focus({ preventScroll: true });
 }
+function advanceToNext() {
+  const current = chapterWords(words, progress.chapter);
+  const from = cursorWord && current.some(word => word.name === cursorWord) ? cursorWord : activeWord;
+  const currentIndex = from ? current.findIndex(word => word.name === from) : -1;
+  const nextIndex = currentIndex + 1;
+  if (nextIndex >= current.length) {
+    if (currentIndex === current.length - 1) cursorWord = current[currentIndex].name;
+    $('#announcement').textContent = '已经是本章最后一个单词';
+    return;
+  }
+  activate(words.indexOf(current[nextIndex]));
+}
 function changeChapter(chapter) {
   pronunciation.stop();
   progress.chapter = Math.max(1, Math.min(chapterCount(words), chapter));
   activeWord = null;
+  cursorWord = null;
   latestCorrect = null;
   persist();
   renderChapter();
@@ -204,8 +219,7 @@ function bindEvents() {
   });
   $('#word-grid').addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeWord) { event.preventDefault(); reveal(); }
-  });
-  $('#word-grid').addEventListener('submit', event => {
+  });  $('#word-grid').addEventListener('submit', event => {
     event.preventDefault();
     if (event.isComposing || !activeWord) return;
     const input = $('#spelling-input');
@@ -267,6 +281,7 @@ function bindEvents() {
       const incoming = validateProgress(JSON.parse(await file.text()), words);
       progress = mergeProgress(progress, incoming);
       activeWord = null;
+      cursorWord = null;
       persist();
       renderChapter();
       $('#backup-message').textContent = storageWarning ? '进度已合并到当前页面，但尚未保存到浏览器，请导出备份。' : '进度已合并并保存，可以继续学习了。';
@@ -281,6 +296,13 @@ function bindEvents() {
     progress = mergeProgress(progress, loaded.progress);
     // Keep an in-progress answer intact while reflecting progress from another tab.
     if (!activeWord) renderChapter(); else updateStats();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.isComposing) return;
+    if (document.querySelector('dialog[open]')) return;
+    event.preventDefault();
+    advanceToNext();
   });
   window.addEventListener('pagehide', () => pronunciation.stop());
   document.addEventListener('visibilitychange', () => { if (document.hidden) pronunciation.stop(); });

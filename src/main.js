@@ -92,7 +92,7 @@ function renderShell() {
         <div id="storage-warning" class="warning" role="alert" hidden></div>
         <section class="chapter-section" aria-labelledby="chapter-heading">
           <div class="chapter-toolbar"><div class="chapter-title"><h2 id="chapter-heading"></h2><span id="word-range"></span></div><div class="chapter-actions"><button class="secondary" id="chapter-open">${icon('grid')}章节目录</button><button class="primary" id="practice">开始本章练习 ${icon('arrow')}</button></div></div>
-          <div class="instructions">${icon('info')}<span>点击卡片，试着拼出单词。<span class="desktop-tip"> 输入后按 <kbd>Enter</kbd> 检查，按 <kbd>Esc</kbd> 查看单词。</span></span><span class="legend"><span class="green-dot"></span>已练习</span></div>
+          <div class="instructions">${icon('info')}<span>点击卡片，试着拼出单词。<span class="desktop-tip"> 输入后按 <kbd>Enter</kbd> 检查，按 <kbd>Esc</kbd> 查看单词，拼对后按 <kbd>Tab</kbd> 进入下一个单词。</span></span><span class="legend"><span class="green-dot"></span>已练习</span></div>
           <div id="pronunciation-message" class="warning" role="status" hidden></div>
           <div class="word-grid" id="word-grid" tabindex="-1"></div>
           <div class="chapter-finish" id="chapter-finish" hidden>${icon('check')}这一章的单词都练习过了。继续下一章，或再巩固一遍！</div>
@@ -148,7 +148,7 @@ function cardContent(word, number) {
   const header = `<div class="card-top card-header"><span class="word-number">${String(number).padStart(3, '0')}</span><div class="card-tools">${active ? '<span class="writing-label">拼写中</span>' : status}</div></div>`;
   const pronounce = `<button type="button" class="pronounce ${speakingWord === word.name ? 'playing' : ''}" aria-label="${active ? '播放当前单词发音' : `播放 ${escape(word.name)} 的发音`}" title="播放发音" aria-busy="${speakingWord === word.name}">${icon('speaker')}</button>`;
   if (active) {
-    return `<div class="card-body">${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true" title="点击返回查看单词">${escape(word.name)}</div><div class="translation" title="点击返回查看单词">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span></div></form></div></div>${pronounce}`;
+    return `<div class="card-body">${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true" title="点击返回查看单词">${escape(word.name)}</div><div class="translation" title="点击返回查看单词">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span><span class="spell-tip">拼对后按 Tab 继续</span></div></form></div></div>${pronounce}`;
   }
   return `<div class="card-body">${header}<button class="card-face ${complete ? 'is-complete' : ''}" aria-label="练习 ${escape(word.name)}"><span class="word-name">${escape(word.name)}</span><span class="phonetic">/${escape(word.usphone || word.ukphone)}/</span><span class="translation">${word.trans.map(escape).join('；')}</span><span class="card-bottom ${latestCorrect === word.name ? 'correct-message' : ''}">${latestCorrect === word.name ? `${icon('check')}拼写正确，记得很棒！` : `点击卡片，练习拼写 <span>↗</span>`}</span></button></div>${pronounce}`;
 }
@@ -177,7 +177,39 @@ function reveal() {
   refreshCard(previous);
   document.querySelector(`[data-index="${words.findIndex(w => w.name === previous)}"] .card-face`)?.focus({ preventScroll: true });
 }
+function checkSpelling() {
+  const input = $('#spelling-input');
+  if (!activeWord || !input) return 'idle';
+  const typed = input.value.trim();
+  if (!typed) {
+    $('#spell-feedback').textContent = '先输入单词，再检查哦';
+    input.focus();
+    return 'empty';
+  }
+  const correct = isCorrect(typed, activeWord);
+  progress = recordAttempt(progress, activeWord, correct);
+  persist();
+  if (correct) {
+    latestCorrect = activeWord;
+    $('#announcement').textContent = `${activeWord} 拼写正确`;
+    chime.play();
+    reveal();
+    updateStats();
+    return 'correct';
+  }
+  input.setAttribute('aria-invalid', 'true');
+  input.classList.add('invalid');
+  $('#spell-feedback').textContent = '拼写错误，再试一次';
+  $('#spell-feedback').classList.add('incorrect');
+  input.focus();
+  input.select();
+  return 'incorrect';
+}
 function advanceToNext() {
+  // 拼写状态下按 Tab 先检查拼写，只有拼对才切到下一个单词。
+  if (activeWord && $('#spelling-input')) {
+    if (checkSpelling() !== 'correct') return;
+  }
   const current = chapterWords(words, progress.chapter);
   const from = cursorWord && current.some(word => word.name === cursorWord) ? cursorWord : activeWord;
   const currentIndex = from ? current.findIndex(word => word.name === from) : -1;
@@ -221,28 +253,11 @@ function bindEvents() {
   });
   $('#word-grid').addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeWord) { event.preventDefault(); reveal(); }
-  });  $('#word-grid').addEventListener('submit', event => {
+  });
+  $('#word-grid').addEventListener('submit', event => {
     event.preventDefault();
-    if (event.isComposing || !activeWord) return;
-    const input = $('#spelling-input');
-    if (!input.value.trim()) { $('#spell-feedback').textContent = '先输入单词，再检查哦'; input.focus(); return; }
-    const correct = isCorrect(input.value, activeWord);
-    progress = recordAttempt(progress, activeWord, correct);
-    persist();
-    if (correct) {
-      latestCorrect = activeWord;
-      $('#announcement').textContent = `${activeWord} 拼写正确`;
-      chime.play();
-      reveal();
-      updateStats();
-    } else {
-      input.setAttribute('aria-invalid', 'true');
-      input.classList.add('invalid');
-      $('#spell-feedback').textContent = '拼写错误，再试一次';
-      $('#spell-feedback').classList.add('incorrect');
-      input.focus();
-      input.select();
-    }
+    if (event.isComposing) return;
+    checkSpelling();
   });
   $('#word-grid').addEventListener('input', () => {
     $('#spelling-input')?.removeAttribute('aria-invalid');

@@ -81,3 +81,28 @@ test('复用外部传入的上下文，不新建实例', () => {
   const chime = createChime({ audioContext: ctx });
   assert.equal(chime.play(), true);
 });
+
+test('章节完成时播放更长的庆祝旋律，与单词音效明显不同', () => {
+  const fixture = setup();
+  const chime = createChime({ AudioContextClass: fixture.AudioContextClass });
+  assert.equal(chime.playFanfare(), true);
+  // 庆祝旋律音符更多、跨度更长，听感上不会和单词音效混淆。
+  assert.ok(fixture.tones.length > 3, '庆祝旋律音符数应多于单词音效的 3 个');
+  const lastEnd = Math.max(...fixture.tones.map(osc => osc.frequency.value));
+  assert.ok(lastEnd >= 1000, '庆祝旋律应包含更高的音');
+  const offsets = fixture.tones.map(osc => osc.starts[0]).sort((a, b) => a - b);
+  assert.ok(offsets[offsets.length - 1] > 0.3, '庆祝旋律的总时长应明显长于单词音效');
+});
+
+test('庆祝旋律与单词音效共用同一音频上下文', () => {
+  const fixture = setup();
+  const chime = createChime({ AudioContextClass: fixture.AudioContextClass });
+  chime.play();
+  chime.playFanfare();
+  assert.equal(fixture.contexts, 1);
+});
+
+test('庆祝旋律在不支持音频时同样静默失败', () => {
+  const chime = createChime({ AudioContextClass: null });
+  assert.equal(chime.playFanfare(), false);
+});

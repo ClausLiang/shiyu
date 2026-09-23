@@ -26,6 +26,8 @@ let activeWord = null;
 let cursorWord = null;
 let latestCorrect = null;
 let speakingWord = null;
+// 本轮开始前本章是否已全部完成，用于区分「首次学习」与「复习」两种庆祝场景。
+let chapterWasComplete = false;
 const pronunciation = createPronunciation({
   synthesis: window.speechSynthesis,
   Utterance: window.SpeechSynthesisUtterance,
@@ -103,6 +105,7 @@ function renderShell() {
     </div>
     <dialog id="chapter-dialog" aria-labelledby="chapter-dialog-title"><div class="dialog-heading"><div><div class="eyebrow">YOUR LEARNING JOURNEY</div><h2 id="chapter-dialog-title">选择章节</h2></div><button class="icon-button" data-close aria-label="关闭章节目录">${icon('close')}</button></div><p class="dialog-subtitle">每次一小章，慢慢积累。最后一章含 7 个单词。</p><div class="chapter-picker" id="chapter-picker"></div></dialog>
     <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-heading"><h2 id="backup-title">进度与备份</h2><button class="icon-button" data-close aria-label="关闭进度与备份">${icon('close')}</button></div><p class="dialog-subtitle">学习进度自动保存在当前浏览器，刷新或关闭页面后仍会保留。请使用同一浏览器和访问地址：localhost 与 127.0.0.1 的进度相互独立。清除浏览器数据或更换设备前，可以先导出一份备份。</p><div class="backup-options"><div><h3>带走你的学习进度</h3><p>保存为 JSON 文件，方便日后恢复。</p><button class="primary" id="export-progress">导出进度 ${icon('arrow')}</button></div><div><h3>从备份继续学习</h3><p>合并已有进度，保留已完成记录和当前章节。</p><button class="secondary" id="import-progress">导入进度</button><input type="file" id="import-file" accept=".json,application/json" hidden></div></div><p id="backup-message" role="status"></p></dialog>
+    <dialog id="chapter-done-dialog" aria-labelledby="chapter-done-title"><div class="celebrate"><span class="celebrate-badge">${icon('check')}</span><div class="eyebrow">CHAPTER COMPLETE</div><h2 id="chapter-done-title">恭喜，您已经学完了本章的所有单词！</h2><p id="chapter-done-copy">这一章的单词都亲手拼对过了，这就是每天的积累。</p><div class="celebrate-actions"><button class="primary" id="chapter-done-next">进入下一章 ${icon('arrow')}</button><button class="secondary" id="chapter-done-review">再巩固一遍</button><button class="ghost" id="chapter-done-close">留在这里</button></div></div></dialog>
     <div class="sr-only" role="status" id="announcement" aria-live="polite"></div>`;
 }
 
@@ -162,6 +165,11 @@ function refreshCard(name) {
 }
 function activate(index) {
   const previous = activeWord;
+  // 从查看态进入即为新一轮的开始，此时记录本章是否已全部学完（复习场景）。
+  if (!previous) {
+    const current = chapterWords(words, progress.chapter);
+    chapterWasComplete = completedCount(progress, current) === current.length;
+  }
   activeWord = words[index].name;
   cursorWord = activeWord;
   latestCorrect = null;
@@ -207,10 +215,23 @@ function checkSpelling() {
 }
 function advanceToNext() {
   // 拼写状态下按 Tab 先检查拼写，只有拼对才切到下一个单词。
+  let celebrate = false;
   if (activeWord && $('#spelling-input')) {
+    const current = chapterWords(words, progress.chapter);
+    const spelled = activeWord;
+    const isLastWord = spelled === current[current.length - 1].name;
     if (checkSpelling() !== 'correct') return;
+    // 只有拼对本章最后一个单词时才可能庆祝，且分两种场景：
+    // 1. 复习：本轮开始前本章就已全部学完，走完整轮即庆祝；
+    // 2. 首次学习：本轮开始前还有单词未完成，必须这次补齐所有缺口（全章完成）才庆祝，
+    //    中途漏词则不庆祝。
+    celebrate = isLastWord && (chapterWasComplete || completedCount(progress, current) === current.length);
   }
   const current = chapterWords(words, progress.chapter);
+  if (celebrate) {
+    celebrateChapter();
+    return;
+  }
   const from = cursorWord && current.some(word => word.name === cursorWord) ? cursorWord : activeWord;
   const currentIndex = from ? current.findIndex(word => word.name === from) : -1;
   const nextIndex = currentIndex + 1;
@@ -221,12 +242,29 @@ function advanceToNext() {
   }
   activate(words.indexOf(current[nextIndex]));
 }
+function celebrateChapter() {
+  const current = chapterWords(words, progress.chapter);
+  const last = progress.chapter === chapterCount(words);
+  const completed = completedCount(progress, current);
+  const chapterLabel = `第 ${String(progress.chapter).padStart(2, '0')} 章`;
+  // 清空游标：整章完成是本轮流程的终点，之后重新进入即为从头复习。
+  cursorWord = null;
+  $('#chapter-done-title').textContent = '恭喜，您已经学完了本章的所有单词！';
+  $('#chapter-done-copy').textContent = `${chapterLabel}的 ${current.length} 个单词都亲手拼对过了，这就是每天的积累。`;
+  $('#chapter-done-next').innerHTML = last ? `回到第一章 ${icon('arrow')}` : `进入下一章 ${icon('arrow')}`;
+  $('#chapter-done-next').dataset.target = String(last ? 1 : progress.chapter + 1);
+  $('#chapter-done-dialog').showModal();
+  $('#chapter-done-next').focus();
+  chime.playFanfare();
+  $('#announcement').textContent = `恭喜，本章 ${completed} 个单词已全部练习完成`;
+}
 function changeChapter(chapter) {
   pronunciation.stop();
   progress.chapter = Math.max(1, Math.min(chapterCount(words), chapter));
   activeWord = null;
   cursorWord = null;
   latestCorrect = null;
+  chapterWasComplete = false;
   persist();
   renderChapter();
   $('#announcement').textContent = `已切换到第 ${progress.chapter} 章`;
@@ -277,6 +315,20 @@ function bindEvents() {
     const button = event.target.closest('[data-chapter]');
     if (button) { changeChapter(Number(button.dataset.chapter)); $('#chapter-dialog').close(); }
   });
+  $('#chapter-done-next').addEventListener('click', event => {
+    const target = Number(event.currentTarget.dataset.target) || 1;
+    $('#chapter-done-dialog').close();
+    changeChapter(target);
+  });
+  $('#chapter-done-review').addEventListener('click', () => {
+    $('#chapter-done-dialog').close();
+    const current = chapterWords(words, progress.chapter);
+    activate(words.indexOf(current[0]));
+  });
+  $('#chapter-done-close').addEventListener('click', () => {
+    $('#chapter-done-dialog').close();
+    document.querySelector('#word-grid .word-card .card-face')?.focus({ preventScroll: true });
+  });
   $('#save-status').addEventListener('click', () => { $('#backup-message').textContent = ''; $('#backup-dialog').showModal(); });
   $('#backup-open').addEventListener('click', () => { $('#backup-message').textContent = ''; $('#backup-dialog').showModal(); });
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
@@ -300,6 +352,7 @@ function bindEvents() {
       progress = mergeProgress(progress, incoming);
       activeWord = null;
       cursorWord = null;
+      chapterWasComplete = false;
       persist();
       renderChapter();
       $('#backup-message').textContent = storageWarning ? '进度已合并到当前页面，但尚未保存到浏览器，请导出备份。' : '进度已合并并保存，可以继续学习了。';

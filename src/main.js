@@ -1,4 +1,4 @@
-import { chapterCount, chapterWords, isCorrect, recordAttempt, completedCount, validateDictionary, validateProgress, mergeProgress } from './learning.js';
+import { CHAPTER_SIZE, chapterCount, chapterWords, isCorrect, recordAttempt, completedCount, validateDictionary, validateProgress, mergeProgress } from './learning.js';
 import { STORAGE_KEY, loadProgress, saveProgress } from './storage.js';
 import { createPronunciation } from './pronunciation.js';
 import { createChime } from './feedback.js';
@@ -148,14 +148,14 @@ function renderChapter() {
   $('#page-indicator').textContent = `${progress.chapter} / ${chapterCount(words)}`;
   $('#previous').disabled = progress.chapter === 1;
   $('#next').disabled = progress.chapter === chapterCount(words);
-  $('#word-grid').innerHTML = current.map((word, index) => `<article class="word-card" data-index="${start + index - 1}">${cardContent(word, start + index)}</article>`).join('');
+  $('#word-grid').innerHTML = current.map((word, index) => `<article class="word-card" data-index="${start + index - 1}">${cardContent(word, start + index, index + 1, current.length)}</article>`).join('');
   updateStats();
 }
-function cardContent(word, number) {
+function cardContent(word, number, chapterNumber, chapterSize) {
   const complete = Boolean(progress.words[word.name]?.completed);
   const active = activeWord === word.name;
   const status = complete ? `<span class="word-status done">${icon('check')}已练习</span>` : '<span class="word-status">待练习</span>';
-  const header = `<div class="card-top card-header"><span class="word-number">${String(number).padStart(3, '0')}</span><div class="card-tools">${active ? '<span class="writing-label">拼写中</span>' : status}</div></div>`;
+  const header = `<div class="card-top card-header"><span class="word-number">${String(number).padStart(3, '0')}<span class="chapter-number">${chapterNumber}/${chapterSize}</span></span><div class="card-tools">${active ? '<span class="writing-label">拼写中</span>' : status}</div></div>`;
   const pronounce = `<button type="button" class="pronounce ${speakingWord === word.name ? 'playing' : ''}" aria-label="${active ? '播放当前单词发音' : `播放 ${escape(word.name)} 的发音`}" title="播放发音" aria-busy="${speakingWord === word.name}">${icon('speaker')}</button>`;
   if (active) {
     return `<div class="card-body">${header}<div class="active-card"><div class="word-name blurred" aria-hidden="true" title="点击返回查看单词">${escape(word.name)}</div><div class="translation" title="点击返回查看单词">${word.trans.map(escape).join('；')}</div><form class="spelling-form"><label class="sr-only" for="spelling-input">输入单词拼写</label><div class="input-row"><input id="spelling-input" name="spelling" placeholder="在这里拼写…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="spell-feedback"><button type="submit" class="check-button" aria-label="检查拼写">${icon('arrow')}</button></div><div class="spell-bottom"><span id="spell-feedback" role="status">Enter 检查拼写</span><span class="spell-tip">拼对后按 Tab 继续</span></div></form></div></div>${pronounce}`;
@@ -166,7 +166,8 @@ function refreshCard(name) {
   const index = words.findIndex(w => w.name === name);
   const card = document.querySelector(`[data-index="${index}"]`);
   if (card) {
-    card.innerHTML = cardContent(words[index], index + 1);
+    const chapterSize = chapterWords(words, Math.floor(index / CHAPTER_SIZE) + 1).length;
+    card.innerHTML = cardContent(words[index], index + 1, index % CHAPTER_SIZE + 1, chapterSize);
     card.classList.toggle('active', activeWord === name);
   }
 }

@@ -1,6 +1,7 @@
 import { chapterCount, chapterWords, isCorrect, recordAttempt, completedCount, validateDictionary, validateProgress, mergeProgress } from './learning.js';
 import { STORAGE_KEY, loadProgress, saveProgress } from './storage.js';
 import { createPronunciation } from './pronunciation.js';
+import { createChime } from './feedback.js';
 
 const icons = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H4z"/><path d="M13 7a3 3 0 0 1 3-3h4v14h-3a4 4 0 0 0-4 3"/>',
@@ -39,6 +40,7 @@ const pronunciation = createPronunciation({
     if (notice) { notice.textContent = message; notice.hidden = !message; }
   },
 });
+const chime = createChime();
 
 async function init() {
   try {
@@ -230,6 +232,7 @@ function bindEvents() {
     if (correct) {
       latestCorrect = activeWord;
       $('#announcement').textContent = `${activeWord} 拼写正确`;
+      chime.play();
       reveal();
       updateStats();
     } else {

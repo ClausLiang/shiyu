@@ -26,4 +26,4 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
     res.end(req.method === 'HEAD' ? undefined : body);
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(port, '127.0.0.1', () => console.log(`拾语已启动：http://127.0.0.1:${port}${testing ? '/tests/browser.html' : ''}`));
+}).listen(port, process.env.HOST || '0.0.0.0', () => console.log(`拾语已启动：http://127.0.0.1:${port}${testing ? '/tests/browser.html' : ''}（局域网可用本机内网 IP 访问）`));

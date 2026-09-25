@@ -180,7 +180,7 @@ function activate(index) {
   refreshCard(activeWord);
   $('#spelling-input').focus({ preventScroll: true });
   pronunciation.speak(activeWord);
-  $('#spelling-input').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  keepActiveCardVisible();
 }
 function reveal() {
   const previous = activeWord;
@@ -270,6 +270,25 @@ function focusChapterStart() {
   if (!card) return;
   card.scrollIntoView({ block: 'center', behavior: 'auto' });
   card.querySelector('.card-face')?.focus({ preventScroll: true });
+}
+// iOS Safari 键盘弹起不缩小布局视口，页面只滚动到聚焦的输入框，
+// 卡片上方的单词会被键盘遮挡。监听 visualViewport 的 resize（键盘
+// 就位、收起及工具栏变化时触发），把整张激活卡片滚到键盘上方；
+// 卡片高度超出可视区时优先露出输入框。
+function keepActiveCardVisible() {
+  const viewport = window.visualViewport;
+  if (!activeWord || !viewport) return;
+  const card = document.querySelector('.word-card.active');
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const visibleTop = viewport.offsetTop;
+  const visibleBottom = viewport.offsetTop + viewport.height;
+  const margin = 8;
+  if (rect.bottom > visibleBottom) {
+    window.scrollBy({ top: rect.bottom - visibleBottom + margin, behavior: 'auto' });
+  } else if (rect.top < visibleTop) {
+    window.scrollBy({ top: rect.top - visibleTop - margin, behavior: 'auto' });
+  }
 }
 function showChapters() {
   $('#chapter-picker').innerHTML = Array.from({ length: chapterCount(words) }, (_, i) => {
@@ -379,6 +398,7 @@ function bindEvents() {
   });
   window.addEventListener('pagehide', () => pronunciation.stop());
   document.addEventListener('visibilitychange', () => { if (document.hidden) pronunciation.stop(); });
+  window.visualViewport?.addEventListener('resize', keepActiveCardVisible);
 }
 
 init();

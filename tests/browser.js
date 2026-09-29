@@ -113,6 +113,9 @@ run.addEventListener('click', async () => {
         frame.contentWindow.scrollTo(0, frame.contentDocument.body.scrollHeight);
         activate(19); answer(last);
         $('#chapter-done-review').click();
+        // 「再巩固一遍」只定位到首词卡片，不自动进入拼写状态（避免弹窗关闭后滚动位置跳变）。
+        assert(!$('#spelling-input'), '复习不应自动进入拼写状态');
+        activate(0);
         const input = $('#spelling-input');
         assert($('[data-index="0"] #spelling-input') === input, '应回到首词');
         // 等待平滑滚动结束，再判断几何关系，避免把过渡中的位置误判为成功。

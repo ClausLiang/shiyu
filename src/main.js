@@ -21,6 +21,9 @@ const icons = {
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const $ = selector => document.querySelector(selector);
+// Esc 正下方同一位置是 ` ~ · 键，按 Esc 时容易误触；按物理键位 Backquote 监听，
+// 让它和 Esc 一样查看当前单词（不区分 ` / ~ / ·，也不受输入法状态影响）。
+const isRevealKey = event => event.key === 'Escape' || event.code === 'Backquote';
 let words, progress, storage, storageWarning = '', storageBlocked = false;
 let activeWord = null;
 let cursorWord = null;
@@ -311,7 +314,7 @@ function bindEvents() {
     if (event.target.closest('.card-face') || (event.target.closest('.card-header') && !card.classList.contains('active'))) activate(Number(card.dataset.index));
   });
   $('#word-grid').addEventListener('keydown', event => {
-    if (event.key === 'Escape' && activeWord) { event.preventDefault(); reveal(); }
+    if (isRevealKey(event) && activeWord) { event.preventDefault(); reveal(); }
   });
   $('#word-grid').addEventListener('submit', event => {
     event.preventDefault();

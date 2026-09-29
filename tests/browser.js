@@ -97,6 +97,16 @@ run.addEventListener('click', async () => {
       tab();
       assert(!isCelebrating(), '查看已完成末词也不能庆祝');
     });
+    await test('Esc 与键盘左上的 `~· 键都能查看单词', async () => {
+      await load();
+      activate(0);
+      const press = (target, init) => target.dispatchEvent(new frame.contentWindow.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+      press($('#spelling-input'), { key: '·', code: 'Backquote' });
+      assert(!$('#spelling-input'), '按 `~· 键应查看单词');
+      activate(1);
+      press($('#spelling-input'), { key: 'Escape', code: 'Escape' });
+      assert(!$('#spelling-input'), '按 Esc 应查看单词');
+    });
     for (const width of [1440, 390]) {
       await test(`${width}px：庆祝后复习首词，输入框避开顶栏且可点击`, async () => {
         await load({ width });

@@ -70,7 +70,11 @@ Windows Chrome 若无声：先完全退出并重新打开浏览器。若仍失�
 ## 目录
 
 ```text
-src/main.js       页面及交互
+index.html        固定导航、页面布局、弹窗外壳与 SVG 图标定义
+src/main.js       启动、模块导航和共用发音协调
+src/word-page.js  单词渲染、拼写、章节及进度备份交互
+src/sentence-page.js 语句加载、渲染、分页与发音交互
+src/ui.js         HTML 转义、图标引用与 DOM 查询工具
 src/style.css     响应式界面
 src/learning.js   章节、拼写、统计、校验与合并逻辑
 src/sentences.js  语句校验与分页逻辑
@@ -82,6 +86,8 @@ public/data/      原始词库、用户提供的语句及来源说明
 scripts/          本地服务与静态构建
 tests/            核心逻辑测试与导入样例
 ```
+
+固定页面结构直接写在 HTML 中，单词卡片、语句和章节列表由各自页面模块局部生成。词库加载期间可以切换语句和主题；加载失败时在单词页重试，进度相关入口在数据就绪后启用。后续新增页面结构先修改 HTML，动态内容和交互放在对应页面模块，避免重新堆入入口脚本。
 
 ## 后续讨论
 

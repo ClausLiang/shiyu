@@ -31,6 +31,11 @@ html{scroll-padding-top:83px}
 .celebrate{text-align:center;padding:8px 4px 2px}.celebrate-badge{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,#6d5bd0,#9b86ee);color:#fff;box-shadow:0 12px 28px #6d5bd038}.celebrate-badge .icon{width:28px;height:28px}.celebrate h2{font-size:21px;font-weight:650;margin:12px 0 10px;color:#393345}.celebrate p{font-size:12px;color:#96909f;line-height:1.9;margin:0 0 24px}.celebrate-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}#chapter-done-close{border:0;background:transparent;color:#96909f;min-height:36px;padding:9px 13px;border-radius:7px;font-size:11px}#chapter-done-close:hover{background:#f5f3f9;color:#6f6880}
 @media(max-width:620px){.celebrate-badge{width:52px;height:52px;margin-bottom:13px}.celebrate h2{font-size:18px}.celebrate-actions{flex-direction:column}.celebrate-actions button{width:100%}}
 
+.icon-definitions{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.icon{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#word-load-message{color:var(--muted);font-size:13px;line-height:1.8;margin:24px 0}
+#word-error{margin-top:24px}
+
 /* 主题入口保持在全站顶栏；不重绘学习内容，切换时保留输入和进度。 */
 .theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-width:36px;min-height:36px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#777084;font-size:11px;white-space:nowrap}
 .theme-toggle:hover{background:#f5f2fc;color:var(--purple)}

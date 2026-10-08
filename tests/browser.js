@@ -47,7 +47,7 @@ run.addEventListener('click', async () => {
   try {
     const response = await fetch('../public/data/cet4.json');
     const words = await response.json();
-    async function load({ chapter = 1, missing = [], width = 1440, mockSpeech = false, setupScript = '' } = {}) {
+    async function load({ chapter = 1, missing = [], width = 1440, mockSpeech = false, setupScript = '', waitFor = () => Boolean($('#word-grid .word-card')) } = {}) {
       // 先卸载上一用例，避免它收到测试数据的 storage 事件。
       frame.removeAttribute('srcdoc');
       frame.src = 'about:blank';
@@ -64,8 +64,94 @@ run.addEventListener('click', async () => {
         const speechScript = mockSpeech ? 'window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };' : '';
         frame.srcdoc = html.replace('<head>', `<head><base href="/"><script>${speechScript}${setupScript}<\/script>`);
       } else frame.src = '/';
-      await until(() => Boolean($('#practice')));
+      await until(waitFor);
     }
+    await test('固定导航、页面和弹窗在 HTML 中直接提供，图标引用完整且无重复 ID', async () => {
+      const html = await (await fetch('/')).text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      for (const selector of ['.sidebar', '.topbar', '#theme-toggle', '#words-view', '#sentences-view', '#chapter-dialog', '#backup-dialog', '#chapter-done-dialog']) {
+        assert(doc.querySelector(selector), `HTML 缺少 ${selector}`);
+      }
+      const ids = [...doc.querySelectorAll('[id]')].map(element => element.id);
+      assert(new Set(ids).size === ids.length, 'HTML 包含重复 ID');
+      for (const use of doc.querySelectorAll('use')) assert(doc.querySelector(use.getAttribute('href')), '图标引用缺少定义');
+      assert(!doc.querySelector('.word-card') && !doc.querySelector('.sentence-card'), '数据卡片仍应按需生成');
+    });
+    await test('词库请求未完成时即可切换语句和主题，加载完成不会抢回页面', async () => {
+      await load({
+        setupScript: `const originalFetch = window.fetch.bind(window); window.fetch = (url, options) => {
+          if (!String(url).endsWith('/cet4.json')) return originalFetch(url, options);
+          document.documentElement.dataset.testDictionaryPending = 'true';
+          return new Promise(resolve => document.addEventListener('test-release-dictionary', () => resolve(originalFetch(url, options)), { once: true }));
+        };`,
+        waitFor: () => frame.contentDocument.documentElement.dataset.testDictionaryPending === 'true',
+      });
+      const shell = $('.sidebar'), theme = $('#theme-toggle');
+      assert(!$('#word-load-message').hidden && $('#backup-open').disabled, '加载中应提示且禁用进度操作');
+      $('[data-module="sentences"]').click();
+      await until(() => Boolean($('.sentence-card')));
+      const previousTheme = frame.contentDocument.documentElement.dataset.theme;
+      theme.click();
+      assert(frame.contentDocument.documentElement.dataset.theme !== previousTheme, '主题不应依赖词库');
+      frame.contentDocument.dispatchEvent(new frame.contentWindow.Event('test-release-dictionary'));
+      await until(() => Boolean($('#word-grid .word-card')));
+      assert(!$('#sentences-view').hidden && $('#words-view').hidden, '后台词库就绪不能抢回单词页');
+      assert($('.sidebar') === shell && $('#theme-toggle') === theme, '不能替换固定页面节点');
+    });
+    await test('词库失败保留导航和语句，重试恢复且反复切换不重复绑定提交', async () => {
+      await load({
+        setupScript: `const originalFetch = window.fetch.bind(window); let requests = 0; window.fetch = (url, options) => {
+          if (String(url).endsWith('/cet4.json')) {
+            document.documentElement.dataset.testDictionaryRequests = String(++requests);
+            if (requests === 1) return Promise.resolve(new Response('', { status: 404 }));
+          }
+          return originalFetch(url, options);
+        };`,
+        waitFor: () => $('#word-error') && !$('#word-error').hidden,
+      });
+      const navigation = $('[data-module="sentences"]');
+      assert($('#word-content').hidden && $('#save-status').disabled, '失败时不能显示未加载的学习内容或保存成功');
+      navigation.click();
+      await until(() => Boolean($('.sentence-card')));
+      $('[data-module="words"]').click();
+      $('#word-retry').click();
+      $('#word-retry').click();
+      await until(() => Boolean($('#word-grid .word-card')));
+      assert(frame.contentDocument.documentElement.dataset.testDictionaryRequests === '2', '加载中应合并重复重试');
+      assert($('#word-error').hidden && !$('#save-status').disabled, '重试后应恢复进度操作');
+      for (let i = 0; i < 3; i++) { navigation.click(); $('[data-module="words"]').click(); }
+      const before = saved().words[words[0].name].attempts;
+      activate(0); answer(words[0].name, 'submit');
+      assert(saved().words[words[0].name].attempts === before + 1, '一次提交不能触发多次记录');
+      assert(navigation === $('[data-module="sentences"]'), '切换后仍应复用导航节点');
+    });
+    await test('进度导入、导出与跨模块返回仍使用当前单词状态', async () => {
+      await load({ missing: [words[0].name] });
+      const win = frame.contentWindow;
+      const imported = recordAttempt(emptyProgress(), words[0].name, true);
+      const files = new win.DataTransfer();
+      files.items.add(new win.File([JSON.stringify(imported)], 'progress.json', { type: 'application/json' }));
+      $('#save-status').click();
+      $('#import-file').files = files.files;
+      $('#import-file').dispatchEvent(new win.Event('change', { bubbles: true }));
+      await until(() => $('#backup-message').textContent.includes('进度已合并并保存'));
+      assert(saved().words[words[0].name].completed, '导入应更新并保存单词进度');
+      let exported, downloaded = '';
+      const createURL = win.URL.createObjectURL, revokeURL = win.URL.revokeObjectURL, click = win.HTMLAnchorElement.prototype.click;
+      try {
+        win.URL.createObjectURL = blob => { exported = blob; return 'blob:test-progress'; };
+        win.URL.revokeObjectURL = () => {};
+        win.HTMLAnchorElement.prototype.click = function() { downloaded = this.download; };
+        $('#export-progress').click();
+        assert(downloaded.startsWith('shiyu-progress-'), '应发起进度备份下载');
+        assert(JSON.parse(await exported.text()).words[words[0].name].completed, '导出应使用导入后的最新状态');
+      } finally {
+        win.URL.createObjectURL = createURL; win.URL.revokeObjectURL = revokeURL; win.HTMLAnchorElement.prototype.click = click;
+      }
+      $('#backup-dialog [data-close]').click();
+      $('[data-module="sentences"]').click(); $('[data-module="words"]').click();
+      assert($('[data-index="0"] .word-status.done'), '返回单词页应保留完成状态');
+    });
     const last = words[19].name;
     for (const method of ['tab', 'submit', 'button']) {
       await test(`末词提交路径 ${method}：庆祝一次且只记录一次练习`, async () => {

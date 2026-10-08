@@ -12,7 +12,234 @@
     <script type="module" src="./src/main.js"></script>
   </head>
   <body>
-    <div id="app"><div class="loading">正在准备你的单词卡片…</div></div>
-    <noscript>请启用 JavaScript，开始单词学习。</noscript>
+    <svg class="icon-definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H4z"/><path d="M13 7a3 3 0 0 1 3-3h4v14h-3a4 4 0 0 0-4 3"/></symbol>
+      <symbol id="icon-layers" viewBox="0 0 24 24"><rect x="7" y="3" width="13" height="15" rx="3"/><path d="M4 7v12a2 2 0 0 0 2 2h10M11 8h5m-5 4h3"/></symbol>
+      <symbol id="icon-sentence" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4zM8 9h8m-8 4h5"/></symbol>
+      <symbol id="icon-article" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6m-6 4h6m-6 4h4"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+      <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 4h12l3 3v13H4V4zM8 4v6h8V4M8 20v-6h8v6"/></symbol>
+      <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></symbol>
+      <symbol id="icon-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="icon-speaker" viewBox="0 0 24 24"><path d="M11 4 6 8H3v8h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14a8 8 0 0 1-10-10 8.5 8.5 0 1 0 10 10z"/></symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    </svg>
+    <div id="app">
+      <a class="skip-link" href="#word-grid">跳到单词卡片</a>
+      <aside class="sidebar">
+        <a class="brand" href="./" aria-label="拾语首页">
+          <img class="brand-icon" src="./public/favicon.svg?v=3" width="44" height="44" alt=""><span>拾语<small>LITTLE BY LITTLE</small></span>
+        </a>
+        <div class="nav-caption">我的学习空间</div>
+        <nav aria-label="学习模块">
+          <button class="nav-item selected" data-module="words" aria-current="page">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-layers"></use></svg><span>单词学习</span><span class="nav-dot"></span>
+          </button>
+          <button class="nav-item" data-module="sentences">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-sentence"></use></svg><span>语句学习</span><span class="nav-dot" hidden></span>
+          </button>
+          <button class="nav-item" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-article"></use></svg><span>文章学习</span><small>即将上线</small></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="small-note">
+            <span class="note-spark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-spark"></use></svg></span>
+            <p>每一个单词，<br>都是通往世界的一小步。</p>
+            <small>A little progress, every day.</small>
+          </div>
+          <button class="backup-link" id="backup-open" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-save"></use></svg>进度与备份</button>
+          <div class="local-caption"><span class="green-dot"></span>个人学习 · 本地模式</div>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div>学习空间 <span class="slash">/</span> <strong id="module-title">单词学习</strong></div>
+          <div class="topbar-tools">
+            <button class="float-progress" id="float-progress" disabled aria-haspopup="dialog" title="查看章节目录与学习进度">
+              <span class="float-ring" id="float-ring" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-grid"></use></svg></span><span class="float-copy"><strong id="float-chapter">章节进度</strong><small id="float-detail">等待词库…</small></span>
+            </button>
+            <button class="save-status" id="save-status" disabled aria-label="进度与备份设置">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-check"></use></svg>正在读取进度…
+            </button>
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="深色模式" aria-pressed="false" title="切换深色 / 浅色主题">
+              <svg class="icon theme-moon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-moon"></use></svg><svg class="icon theme-sun" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-sun"></use></svg><span>深色模式</span>
+            </button>
+          </div>
+        </header>
+        <main>
+          <div id="theme-message" class="warning" role="status" hidden></div>
+          <div id="words-view">
+            <section class="page-heading">
+              <div>
+                <div class="eyebrow">A LITTLE EVERY DAY</div>
+                <h1>把单词，一点点变成你的。</h1>
+                <p>从一个单词开始，让每一次练习都有收获。</p>
+              </div>
+              <span class="edition">CET-4 学习计划</span>
+            </section>
+            <section class="course-banner" aria-label="四级词汇学习概览">
+              <div class="course-copy">
+                <span class="course-tag">大学英语 · 必备词汇</span>
+                <h2>英语四级核心词汇 <span>CET-4</span></h2>
+                <p>每天一章，先认识，再亲手拼出来。</p>
+                <div class="course-meta">
+                  <span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-book"></use></svg>2,607 个单词</span><i></i><span>131 个章节</span><i></i><span>20 词 / 章</span>
+                </div>
+              </div>
+              <div class="book-art" aria-hidden="true">
+                <span class="art-star">✧</span>
+                <div class="book-shadow"></div>
+                <div class="art-book"><span>WORDS<br>OPEN<br>WORLDS.</span><small>A–Z &nbsp; / &nbsp; VOL. 01</small></div>
+                <span class="art-pill">每一天，近一点 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-spark"></use></svg></span><span class="art-orbit"></span>
+              </div>
+            </section>
+            <p id="word-load-message" role="status">正在准备你的单词卡片…</p>
+            <div id="word-error" class="warning" role="alert" hidden>
+              <p>词库加载失败，请检查本地数据文件后重试。</p>
+              <button class="secondary" id="word-retry">重新加载词库</button>
+            </div>
+            <div id="word-content" hidden>
+              <section class="stats" aria-label="学习进度">
+                <div class="stat">
+                  <span class="stat-icon purple"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-layers"></use></svg></span>
+                  <div>
+                    <span class="stat-label">累计已练习</span>
+                    <div class="stat-value"><strong id="total-completed">0</strong><small>/ 2,607 词</small></div>
+                  </div>
+                </div>
+                <div class="stat">
+                  <span class="stat-icon mint"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-check"></use></svg></span>
+                  <div>
+                    <span class="stat-label">本章已完成</span>
+                    <div class="stat-value"><strong id="chapter-completed">0</strong><small id="chapter-size">/ 20 词</small></div>
+                  </div>
+                </div>
+                <div class="stat progress-stat">
+                  <div class="progress-label"><span>词库学习进度</span><strong id="total-percent">0%</strong></div>
+                  <progress id="total-progress" max="2607" value="0" aria-label="词库学习进度"></progress><small id="progress-caption">慢慢来，每一个词都算数。</small>
+                </div>
+              </section>
+              <div id="storage-warning" class="warning" role="alert" hidden></div>
+              <section class="chapter-section" aria-labelledby="chapter-heading">
+                <div class="chapter-toolbar">
+                  <div class="chapter-title">
+                    <h2 id="chapter-heading"></h2>
+                    <span id="word-range"></span>
+                  </div>
+                  <div class="chapter-actions">
+                    <button class="secondary" id="chapter-open"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-grid"></use></svg>章节目录</button>
+                    <button class="primary" id="practice">开始本章练习 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+                  </div>
+                </div>
+                <div class="instructions">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-info"></use></svg><span>点击卡片，试着拼出单词。<span class="desktop-tip"> 输入后按 <kbd>Enter</kbd> 检查，按 <kbd>Esc</kbd> 查看单词，拼对后按 <kbd>Tab</kbd> 进入下一个单词。</span></span><span class="legend"><span class="green-dot"></span>已练习</span>
+                </div>
+                <div id="pronunciation-message" class="warning" role="status" hidden></div>
+                <div class="word-grid" id="word-grid" tabindex="-1"></div>
+                <div class="chapter-finish" id="chapter-finish" hidden>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-check"></use></svg>这一章的单词都练习过了。继续下一章，或再巩固一遍！
+                </div>
+                <div class="pagination">
+                  <span id="page-summary"></span>
+                  <div>
+                    <button class="secondary" id="previous"><svg class="icon reverse" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"></use></svg>上一章</button>
+                    <span id="page-indicator"></span>
+                    <button class="secondary" id="next">下一章 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <footer>
+              <span>拾语 · 让学习成为日常</span><span>词库来源
+              <a href="https://qwertylearner.cn/" target="_blank" rel="noreferrer">Qwerty Learner ↗</a>
+              </span>
+            </footer>
+          </div>
+          <div id="sentences-view" hidden>
+            <section class="page-heading">
+              <div>
+                <div class="eyebrow">ONE SENTENCE AT A TIME</div>
+                <h1>把喜欢的句子，慢慢拾起来。</h1>
+                <p>读一句，听一遍，让语言走进日常。</p>
+              </div>
+              <span class="edition">语句收藏</span>
+            </section>
+            <section class="sentence-section" aria-labelledby="sentence-heading">
+              <div class="chapter-toolbar">
+                <div class="chapter-title">
+                  <h2 id="sentence-heading">我的语句</h2>
+                  <span id="sentence-count"></span>
+                </div>
+                <span class="sentence-page-size">10 句 / 页</span>
+              </div>
+              <p id="sentence-load-message" role="status"></p>
+              <button id="sentence-retry" class="secondary" hidden>重新加载语句</button>
+              <div id="sentence-pronunciation-message" class="warning" role="status" hidden></div>
+              <div id="sentence-list" class="sentence-list" tabindex="-1"></div>
+              <div class="pagination" id="sentence-pagination" hidden>
+                <span id="sentence-summary"></span>
+                <div>
+                  <button class="secondary" id="sentence-previous"><svg class="icon reverse" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"></use></svg>上一页</button>
+                  <span id="sentence-page-indicator"></span>
+                  <button class="secondary" id="sentence-next">下一页 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"></use></svg></button>
+                </div>
+              </div>
+            </section>
+            <footer><span>拾语 · 让学习成为日常</span><span>一点一滴，收集喜欢的表达</span></footer>
+          </div>
+        </main>
+      </div>
+      <dialog id="chapter-dialog" aria-labelledby="chapter-dialog-title">
+        <div class="dialog-heading">
+          <div>
+            <div class="eyebrow">YOUR LEARNING JOURNEY</div>
+            <h2 id="chapter-dialog-title">选择章节</h2>
+          </div>
+          <button class="icon-button" data-close aria-label="关闭章节目录"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+        </div>
+        <p class="dialog-subtitle">每次一小章，慢慢积累。最后一章含 7 个单词。</p>
+        <div class="chapter-picker" id="chapter-picker"></div>
+      </dialog>
+      <dialog id="backup-dialog" aria-labelledby="backup-title">
+        <div class="dialog-heading">
+          <h2 id="backup-title">进度与备份</h2>
+          <button class="icon-button" data-close aria-label="关闭进度与备份"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+        </div>
+        <p class="dialog-subtitle">学习进度自动保存在当前浏览器，刷新或关闭页面后仍会保留。请使用同一浏览器和访问地址：localhost 与 127.0.0.1 的进度相互独立。清除浏览器数据或更换设备前，可以先导出一份备份。</p>
+        <div class="backup-options">
+          <div>
+            <h3>带走你的学习进度</h3>
+            <p>保存为 JSON 文件，方便日后恢复。</p>
+            <button class="primary" id="export-progress">导出进度 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+          </div>
+          <div>
+            <h3>从备份继续学习</h3>
+            <p>合并已有进度，保留已完成记录和当前章节。</p>
+            <button class="secondary" id="import-progress">导入进度</button>
+            <input type="file" id="import-file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+        <p id="backup-message" role="status"></p>
+      </dialog>
+      <dialog id="chapter-done-dialog" aria-labelledby="chapter-done-title">
+        <div class="celebrate">
+          <span class="celebrate-badge"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-check"></use></svg></span>
+          <div class="eyebrow">CHAPTER COMPLETE</div>
+          <h2 id="chapter-done-title">恭喜，您已经学完了本章的所有单词！</h2>
+          <p id="chapter-done-copy">这一章的单词都亲手拼对过了，这就是每天的积累。</p>
+          <div class="celebrate-actions">
+            <button class="primary" id="chapter-done-next">进入下一章 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+            <button class="secondary" id="chapter-done-review">再巩固一遍</button>
+            <button class="ghost" id="chapter-done-close">留在这里</button>
+          </div>
+        </div>
+      </dialog>
+      <div class="sr-only" role="status" id="announcement" aria-live="polite"></div>
+    </div>
+    <noscript>请启用 JavaScript，加载学习内容并使用交互功能。</noscript>
   </body>
 </html>

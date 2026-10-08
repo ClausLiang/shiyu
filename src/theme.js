@@ -22,6 +22,8 @@
   }
 
   applyTheme(theme);
+  // 按钮现在由 HTML 提供；解析完成后同步首屏前已恢复的主题状态。
+  document.addEventListener('DOMContentLoaded', () => applyTheme(theme), { once: true });
   document.addEventListener('click', event => {
     if (!event.target.closest('#theme-toggle')) return;
     applyTheme(theme === 'dark' ? 'light' : 'dark');

@@ -53,20 +53,27 @@ export function createPronunciation({ synthesis, Utterance, onState }) {
       request.utterance = utterance;
       const source = `${voice.name || voice.lang}（${voice.localService ? '本机语音' : '在线语音'}）`;
       let started = false;
-      utterance.onstart = () => { if (current === request) started = true; };
+      const timeout = () => {
+        if (current !== request) return;
+        finish(started
+          ? `发音未正常结束：${source}。请重启浏览器后重试。`
+          : `发音启动超时：${source}。${voice.localService ? '请完全退出并重新打开浏览器；若仍无声，请在 Windows 语音设置中试听英语语音。' : '在线语音服务未响应，请检查网络，或在 Windows 语音设置中添加英语（美国），重启浏览器后重试。'}`);
+        synthesis.cancel();
+      };
+      utterance.onstart = () => {
+        if (current !== request) return;
+        started = true;
+        clearTimeout(request.timer);
+        // 长句按词数留足朗读时间，启动无响应仍在 15 秒后提示。
+        request.timer = setTimeout(timeout, Math.max(15000, word.trim().split(/\s+/).length * 1000 + 5000));
+      };
       utterance.onend = () => finish('');
       utterance.onerror = event => finish(
         ['canceled', 'interrupted'].includes(event.error) ? ''
           : `发音未能播放：${source}。${voice.localService ? '请重启浏览器，或在 Windows 语音设置中检查英语语音。' : '此语音需要联网，请检查网络，或安装 Windows 英语语音后重启浏览器。'}`
       );
       onState(word, '');
-      request.timer = setTimeout(() => {
-        if (current !== request) return;
-        finish(started
-          ? `发音未正常结束：${source}。请重启浏览器后重试。`
-          : `发音启动超时：${source}。${voice.localService ? '请完全退出并重新打开浏览器；若仍无声，请在 Windows 语音设置中试听英语语音。' : '在线语音服务未响应，请检查网络，或在 Windows 语音设置中添加英语（美国），重启浏览器后重试。'}`);
-        synthesis.cancel();
-      }, 15000);
+      request.timer = setTimeout(timeout, 15000);
       // cancel() does not reset a paused SpeechSynthesis instance.
       if (synthesis.paused) synthesis.resume();
       synthesis.speak(utterance);

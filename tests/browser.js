@@ -44,8 +44,9 @@ run.addEventListener('click', async () => {
   try {
     const response = await fetch('../public/data/cet4.json');
     const words = await response.json();
-    async function load({ chapter = 1, missing = [], width = 1440 } = {}) {
+    async function load({ chapter = 1, missing = [], width = 1440, mockSpeech = false } = {}) {
       // 先卸载上一用例，避免它收到测试数据的 storage 事件。
+      frame.removeAttribute('srcdoc');
       frame.src = 'about:blank';
       await until(() => frame.contentDocument?.URL === 'about:blank');
       let progress = emptyProgress();
@@ -55,7 +56,10 @@ run.addEventListener('click', async () => {
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
       frame.width = String(width);
-      frame.src = '/';
+      if (mockSpeech) {
+        const html = await (await fetch('/')).text();
+        frame.srcdoc = html.replace('<head>', '<head><base href="/"><script>window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };<\/script>');
+      } else frame.src = '/';
       await until(() => Boolean($('#practice')));
     }
     const last = words[19].name;
@@ -145,10 +149,94 @@ run.addEventListener('click', async () => {
       $('#chapter-done-next').click();
       assert(saved().chapter === 1 && !isCelebrating(), '应返回第一章');
     });
+    for (const width of [1440, 390]) {
+      await test(`${width}px：语句中英展示、句末发音按钮与模块切换`, async () => {
+        await load({ width });
+        const before = localStorage.getItem(STORAGE_KEY);
+        activate(0);
+        $('[data-module="sentences"]').click();
+        await until(() => Boolean($('.sentence-card')));
+        assert($('#words-view').hidden && !$('#sentences-view').hidden, '应显示语句模块');
+        assert($('#float-progress').hidden && $('#save-status').hidden, '应隐藏单词进度控件');
+        assert(!$('#spelling-input'), '切换模块应退出拼写');
+        assert($('.sentence-english [lang="en"]').textContent === "Everything is about people, everything in this life that's worth a damn.", '原句应完整保留');
+        assert($('.sentence-chinese').textContent === '世间所有值得珍惜的东西，都与人有关。', '译文应完整保留');
+        assert($('.sentence-english').lastElementChild.matches('.sentence-pronounce'), '发音按钮应在英文原句后');
+        assert($('#sentence-previous').disabled && $('#sentence-next').disabled, '不足一页时两端禁用');
+        const event = new frame.contentWindow.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+        frame.contentDocument.dispatchEvent(event);
+        assert(!event.defaultPrevented && !$('#spelling-input'), '语句页面应允许自然 Tab 导航');
+        assert(frame.contentDocument.documentElement.scrollWidth <= frame.contentWindow.innerWidth, '语句页面出现横向滚动');
+        const rect = $('.sentence-pronounce').getBoundingClientRect();
+        assert(rect.left >= 0 && rect.right <= width, '发音按钮应位于视口内');
+        assert(localStorage.getItem(STORAGE_KEY) === before, '浏览语句不应改变单词进度');
+        $('[data-module="words"]').click();
+        assert(!$('#words-view').hidden && !$('#float-progress').hidden, '应恢复单词模块');
+        activate(0);
+        assert($('#spelling-input'), '返回后仍可拼写');
+      });
+    }
+    await test('语句分页与整句发音，重复播放、翻页及切换模块停止播放', async () => {
+      await load({ mockSpeech: true });
+      const win = frame.contentWindow;
+      const fetchOriginal = win.fetch.bind(win);
+      const fixture = Array.from({ length: 21 }, (_, index) => ({ english: `Test sentence ${index + 1}.`, chinese: `测试语句 ${index + 1}。` }));
+      win.fetch = (url, options) => String(url).endsWith('/sentences.json')
+        ? Promise.resolve(new win.Response(JSON.stringify(fixture))) : fetchOriginal(url, options);
+      const spoken = [];
+      let canceled = 0;
+      // 只在测试 iframe 替换语音引擎，核验参数和回调，不依赖设备音色。
+      win.speechSynthesis.getVoices = () => [{ lang: 'en-US', localService: true }];
+      win.speechSynthesis.speak = utterance => { spoken.push(utterance); utterance.onstart(); };
+      win.speechSynthesis.cancel = () => { canceled++; };
+      $('[data-module="sentences"]').click();
+      await until(() => Boolean($('.sentence-card')));
+      assert(frame.contentDocument.querySelectorAll('.sentence-card').length === 10, '第一页应显示 10 句');
+      $('.sentence-pronounce').click();
+      assert(spoken.at(-1)?.text === fixture[0].english, '应只朗读整句英文');
+      $('.sentence-pronounce').click();
+      assert(spoken.length === 2 && canceled >= 1, '重复点击应取消上一条');
+      $('#sentence-next').click();
+      assert(!$('.sentence-pronounce.playing') && canceled >= 2, '翻页应停止播放');
+      assert($('.sentence-english span').textContent === fixture[10].english, '第二页应从第 11 句开始');
+      $('#sentence-next').click();
+      assert(frame.contentDocument.querySelectorAll('.sentence-card').length === 1 && $('#sentence-next').disabled, '尾页仅 1 句，不能继续翻页');
+      $('#sentence-previous').click();
+      assert($('#sentence-page-indicator').textContent === '2 / 3', '应能返回上一页');
+      $('.sentence-pronounce').click();
+      spoken.at(-1).onerror({ error: 'network' });
+      assert(!$('#sentence-pronunciation-message').hidden, '播放错误应可见');
+      $('.sentence-pronounce').click();
+      const before = canceled;
+      $('[data-module="words"]').click();
+      assert(canceled > before, '切换模块应停止播放');
+      $('[data-module="sentences"]').click();
+      assert($('#sentence-page-indicator').textContent === '2 / 3', '当前会话应保留语句页码');
+    });
+    await test('语句加载失败可重试，空数据与格式错误明确提示', async () => {
+      await load();
+      const win = frame.contentWindow;
+      const fetchOriginal = win.fetch.bind(win);
+      let response = () => new win.Response('', { status: 404 });
+      win.fetch = (url, options) => String(url).endsWith('/sentences.json')
+        ? Promise.resolve(response()) : fetchOriginal(url, options);
+      $('[data-module="sentences"]').click();
+      await until(() => !$('#sentence-retry').hidden);
+      assert($('#sentence-load-message').textContent.includes('加载失败'), '失败应有明确提示');
+      response = () => new win.Response('[{}]');
+      $('#sentence-retry').click();
+      await until(() => !$('#sentence-retry').hidden);
+      assert(!$('.sentence-card'), '格式错误不能渲染不完整卡片');
+      response = () => new win.Response('[]');
+      $('#sentence-retry').click();
+      await until(() => $('#sentence-count').textContent === '共 0 句');
+      assert($('#sentence-load-message').textContent.includes('还没有收录') && $('#sentence-pagination').hidden, '空数据应有空状态且无分页');
+    });
   } catch (error) {
     failed++;
     results.append(Object.assign(document.createElement('li'), { textContent: `测试准备失败：${error.message}`, className: 'fail' }));
   } finally {
+    frame.removeAttribute('srcdoc');
     frame.src = 'about:blank';
     await until(() => frame.contentDocument?.URL === 'about:blank');
     if (original === null) localStorage.removeItem(STORAGE_KEY);

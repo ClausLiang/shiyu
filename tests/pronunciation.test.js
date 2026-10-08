@@ -154,3 +154,23 @@ test('超时区分在线语音启动无响应和已开始但未结束，允许�
     assert.match(fixture.states.at(-1)[1], /未正常结束/);
   } finally { fixture.player.stop(); }
 });
+
+test('整句原样朗读，启动超时保持 15 秒，开始后长句不会被提前中断', context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const fixture = setup();
+  const sentence = "Everything is about people, everything in this life that's worth a damn.";
+  try {
+    fixture.player.speak(sentence);
+    context.mock.timers.tick(15000);
+    assert.match(fixture.states.at(-1)[1], /启动超时/);
+    fixture.player.speak(sentence);
+    assert.equal(fixture.spoken[1].text, sentence);
+    fixture.spoken[1].onstart();
+    context.mock.timers.tick(15000);
+    assert.deepEqual(fixture.states.at(-1), [sentence, '']);
+    fixture.spoken[1].onend();
+    assert.deepEqual(fixture.states.at(-1), [null, '']);
+    context.mock.timers.tick(60000);
+    assert.deepEqual(fixture.states.at(-1), [null, '']);
+  } finally { fixture.player.stop(); }
+});

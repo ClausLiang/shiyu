@@ -2,6 +2,7 @@ import { CHAPTER_SIZE, chapterCount, chapterWords, isCorrect, recordAttempt, com
 import { STORAGE_KEY, loadProgress, saveProgress } from './storage.js';
 import { createPronunciation } from './pronunciation.js';
 import { createChime } from './feedback.js';
+import { SENTENCE_PAGE_SIZE, validateSentences, sentencePage } from './sentences.js';
 
 const icons = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H4z"/><path d="M13 7a3 3 0 0 1 3-3h4v14h-3a4 4 0 0 0-4 3"/>',
@@ -29,6 +30,8 @@ let activeWord = null;
 let cursorWord = null;
 let latestCorrect = null;
 let speakingWord = null;
+let activeModule = 'words';
+let sentences = null, currentSentencePage = 1, sentencesLoading = false;
 const pronunciation = createPronunciation({
   synthesis: window.speechSynthesis,
   Utterance: window.SpeechSynthesisUtterance,
@@ -39,7 +42,12 @@ const pronunciation = createPronunciation({
       button.classList.toggle('playing', playing);
       button.setAttribute('aria-busy', String(playing));
     });
-    const notice = $('#pronunciation-message');
+    document.querySelectorAll('.sentence-pronounce').forEach(button => {
+      const playing = sentences[Number(button.dataset.sentence)].english === word;
+      button.classList.toggle('playing', playing);
+      button.setAttribute('aria-busy', String(playing));
+    });
+    const notice = $(activeModule === 'sentences' ? '#sentence-pronunciation-message' : '#pronunciation-message');
     if (notice) { notice.textContent = message; notice.hidden = !message; }
   },
 });
@@ -73,8 +81,8 @@ function renderShell() {
       <a class="brand" href="./" aria-label="拾语首页"><img class="brand-icon" src="${escape(brandIconUrl)}" width="44" height="44" alt=""><span>拾语<small>LITTLE BY LITTLE</small></span></a>
       <div class="nav-caption">我的学习空间</div>
       <nav aria-label="学习模块">
-        <button class="nav-item selected" aria-current="page">${icon('layers')}<span>单词学习</span><span class="nav-dot"></span></button>
-        <button class="nav-item" disabled>${icon('sentence')}<span>语句学习</span><small>即将上线</small></button>
+        <button class="nav-item selected" data-module="words" aria-current="page">${icon('layers')}<span>单词学习</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-module="sentences">${icon('sentence')}<span>语句学习</span><span class="nav-dot" hidden></span></button>
         <button class="nav-item" disabled>${icon('article')}<span>文章学习</span><small>即将上线</small></button>
       </nav>
       <div class="sidebar-bottom">
@@ -86,6 +94,7 @@ function renderShell() {
     <div class="workspace">
       <header class="topbar"><div>学习空间 <span class="slash">/</span> <strong>单词学习</strong></div><div class="topbar-tools"><button class="float-progress" id="float-progress" aria-haspopup="dialog" title="查看章节目录与学习进度"><span class="float-ring" id="float-ring" aria-hidden="true">${icon('grid')}</span><span class="float-copy"><strong id="float-chapter">第 01 章</strong><small id="float-detail">0 / 20 词</small></span></button><button class="save-status" id="save-status" aria-label="进度与备份设置">${icon('check')}进度保存在此浏览器</button></div></header>
       <main>
+        <div id="words-view">
         <section class="page-heading"><div><div class="eyebrow">A LITTLE EVERY DAY</div><h1>把单词，一点点变成你的。</h1><p>从一个单词开始，让每一次练习都有收获。</p></div><span class="edition">CET-4 学习计划</span></section>
         <section class="course-banner" aria-label="四级词汇学习概览">
           <div class="course-copy"><span class="course-tag">大学英语 · 必备词汇</span><h2>英语四级核心词汇 <span>CET-4</span></h2><p>每天一章，先认识，再亲手拼出来。</p><div class="course-meta"><span>${icon('book')}2,607 个单词</span><i></i><span>131 个章节</span><i></i><span>20 词 / 章</span></div></div>
@@ -102,12 +111,91 @@ function renderShell() {
           <div class="pagination"><span id="page-summary"></span><div><button class="secondary" id="previous">${icon('chevron', 'reverse')}上一章</button><span id="page-indicator"></span><button class="secondary" id="next">下一章 ${icon('chevron')}</button></div></div>
         </section>
         <footer><span>拾语 · 让学习成为日常</span><span>词库来源 <a href="https://qwertylearner.cn/" target="_blank" rel="noreferrer">Qwerty Learner ↗</a></span></footer>
+        </div>
+        <div id="sentences-view" hidden>
+          <section class="page-heading"><div><div class="eyebrow">ONE SENTENCE AT A TIME</div><h1>把喜欢的句子，慢慢拾起来。</h1><p>读一句，听一遍，让语言走进日常。</p></div><span class="edition">语句收藏</span></section>
+          <section class="sentence-section" aria-labelledby="sentence-heading">
+            <div class="chapter-toolbar"><div class="chapter-title"><h2 id="sentence-heading">我的语句</h2><span id="sentence-count"></span></div><span class="sentence-page-size">${SENTENCE_PAGE_SIZE} 句 / 页</span></div>
+            <p id="sentence-load-message" role="status"></p><button id="sentence-retry" class="secondary" hidden>重新加载语句</button>
+            <div id="sentence-pronunciation-message" class="warning" role="status" hidden></div>
+            <div id="sentence-list" class="sentence-list" tabindex="-1"></div>
+            <div class="pagination" id="sentence-pagination" hidden><span id="sentence-summary"></span><div><button class="secondary" id="sentence-previous">${icon('chevron', 'reverse')}上一页</button><span id="sentence-page-indicator"></span><button class="secondary" id="sentence-next">下一页 ${icon('chevron')}</button></div></div>
+          </section>
+          <footer><span>拾语 · 让学习成为日常</span><span>一点一滴，收集喜欢的表达</span></footer>
+        </div>
       </main>
     </div>
     <dialog id="chapter-dialog" aria-labelledby="chapter-dialog-title"><div class="dialog-heading"><div><div class="eyebrow">YOUR LEARNING JOURNEY</div><h2 id="chapter-dialog-title">选择章节</h2></div><button class="icon-button" data-close aria-label="关闭章节目录">${icon('close')}</button></div><p class="dialog-subtitle">每次一小章，慢慢积累。最后一章含 7 个单词。</p><div class="chapter-picker" id="chapter-picker"></div></dialog>
     <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-heading"><h2 id="backup-title">进度与备份</h2><button class="icon-button" data-close aria-label="关闭进度与备份">${icon('close')}</button></div><p class="dialog-subtitle">学习进度自动保存在当前浏览器，刷新或关闭页面后仍会保留。请使用同一浏览器和访问地址：localhost 与 127.0.0.1 的进度相互独立。清除浏览器数据或更换设备前，可以先导出一份备份。</p><div class="backup-options"><div><h3>带走你的学习进度</h3><p>保存为 JSON 文件，方便日后恢复。</p><button class="primary" id="export-progress">导出进度 ${icon('arrow')}</button></div><div><h3>从备份继续学习</h3><p>合并已有进度，保留已完成记录和当前章节。</p><button class="secondary" id="import-progress">导入进度</button><input type="file" id="import-file" accept=".json,application/json" hidden></div></div><p id="backup-message" role="status"></p></dialog>
     <dialog id="chapter-done-dialog" aria-labelledby="chapter-done-title"><div class="celebrate"><span class="celebrate-badge">${icon('check')}</span><div class="eyebrow">CHAPTER COMPLETE</div><h2 id="chapter-done-title">恭喜，您已经学完了本章的所有单词！</h2><p id="chapter-done-copy">这一章的单词都亲手拼对过了，这就是每天的积累。</p><div class="celebrate-actions"><button class="primary" id="chapter-done-next">进入下一章 ${icon('arrow')}</button><button class="secondary" id="chapter-done-review">再巩固一遍</button><button class="ghost" id="chapter-done-close">留在这里</button></div></div></dialog>
     <div class="sr-only" role="status" id="announcement" aria-live="polite"></div>`;
+}
+
+function switchModule(module) {
+  if (activeModule === module) return;
+  pronunciation.stop();
+  if (activeWord) reveal();
+  activeModule = module;
+  const showSentences = module === 'sentences';
+  $('#words-view').hidden = showSentences;
+  $('#sentences-view').hidden = !showSentences;
+  $('#float-progress').hidden = showSentences;
+  $('#save-status').hidden = showSentences;
+  $('.topbar strong').textContent = showSentences ? '语句学习' : '单词学习';
+  $('.skip-link').href = showSentences ? '#sentence-list' : '#word-grid';
+  $('.skip-link').textContent = showSentences ? '跳到语句列表' : '跳到单词卡片';
+  document.querySelectorAll('[data-module]').forEach(button => {
+    const selected = button.dataset.module === module;
+    button.classList.toggle('selected', selected);
+    const dot = button.querySelector('.nav-dot');
+    if (dot) dot.hidden = !selected;
+    if (selected) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  document.querySelector(`[data-module="${module}"]`).focus({ preventScroll: true });
+  if (showSentences && sentences === null) loadSentences();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+async function loadSentences() {
+  if (sentencesLoading) return;
+  sentencesLoading = true;
+  $('#sentence-load-message').hidden = false;
+  $('#sentence-load-message').textContent = '正在加载语句…';
+  $('#sentence-retry').hidden = true;
+  try {
+    const response = await fetch(new URL('../public/data/sentences.json', import.meta.url));
+    if (!response.ok) throw new Error('语句请求失败');
+    sentences = validateSentences(await response.json());
+    renderSentences();
+  } catch (error) {
+    $('#sentence-load-message').textContent = '语句加载失败，请检查本地数据文件后重试。';
+    $('#sentence-retry').hidden = false;
+    console.error(error);
+  } finally { sentencesLoading = false; }
+}
+
+function renderSentences() {
+  const { page, pages, start, items } = sentencePage(sentences, currentSentencePage);
+  currentSentencePage = page;
+  $('#sentence-count').textContent = `共 ${sentences.length} 句`;
+  $('#sentence-load-message').textContent = sentences.length ? '' : '还没有收录语句。喜欢的表达，就从第一句开始。';
+  $('#sentence-load-message').hidden = sentences.length > 0;
+  $('#sentence-list').innerHTML = items.map((sentence, index) => `<article class="sentence-card"><span class="sentence-number" aria-label="第 ${start + index + 1} 句">${String(start + index + 1).padStart(2, '0')}</span><div class="sentence-copy"><p class="sentence-english"><span lang="en">${escape(sentence.english)}</span> <button type="button" class="sentence-pronounce" data-sentence="${start + index}" aria-label="播放第 ${start + index + 1} 句英文" title="播放英文原句" aria-busy="false">${icon('speaker')}</button></p><p class="sentence-chinese" lang="zh-CN">${escape(sentence.chinese).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</p></div></article>`).join('');
+  $('#sentence-pagination').hidden = !sentences.length;
+  $('#sentence-summary').textContent = `第 ${start + 1}–${start + items.length} 句 · 共 ${sentences.length} 句`;
+  $('#sentence-page-indicator').textContent = `${page} / ${pages}`;
+  $('#sentence-previous').disabled = page === 1;
+  $('#sentence-next').disabled = page === pages;
+}
+
+function changeSentencePage(page) {
+  pronunciation.stop();
+  currentSentencePage = page;
+  renderSentences();
+  $('#sentence-list').scrollIntoView({ block: 'start', behavior: 'instant' });
+  $('#sentence-list').focus({ preventScroll: true });
+  $('#announcement').textContent = `已切换到语句第 ${currentSentencePage} 页`;
 }
 
 function persist() {
@@ -304,6 +392,14 @@ function showChapters() {
   $('.chapter-choice.current').focus();
 }
 function bindEvents() {
+  document.querySelectorAll('[data-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.module)));
+  $('#sentence-retry').addEventListener('click', loadSentences);
+  $('#sentence-previous').addEventListener('click', () => changeSentencePage(currentSentencePage - 1));
+  $('#sentence-next').addEventListener('click', () => changeSentencePage(currentSentencePage + 1));
+  $('#sentence-list').addEventListener('click', event => {
+    const button = event.target.closest('.sentence-pronounce');
+    if (button) pronunciation.speak(sentences[Number(button.dataset.sentence)].english);
+  });
   $('#word-grid').addEventListener('click', event => {
     const card = event.target.closest('.word-card');
     if (event.target.closest('.pronounce')) {
@@ -393,6 +489,7 @@ function bindEvents() {
     if (!activeWord) renderChapter(); else updateStats();
   });
   document.addEventListener('keydown', event => {
+    if (activeModule !== 'words') return;
     if (event.key !== 'Tab' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.isComposing) return;
     if (document.querySelector('dialog[open]')) return;

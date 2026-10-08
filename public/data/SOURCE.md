@@ -1,4 +1,15 @@
-# CET-4 词库来源
+# 学习数据来源
+
+## 语句数据
+
+- 文件：`sentences.json`；由用户提供英文原句与中文翻译，按收录顺序保存。
+- 2026-10-08 收录首句：Everything is about people, everything in this life that's worth a damn.
+- 用户提供译文：世间所有值得珍惜的东西，都与人有关。
+- 2026-10-08 收录第二句：You don’t have to believe your life is precious, but all life is precious.
+- 用户提供译文：你不必认为你自己的生命珍贵，但**所有生命都是珍贵的**。
+- 原句及译文按用户提供内容保留；用户未指定作品、作者或出处，不额外推断。
+
+## CET-4 词库来源
 
 - 数据提供页面：https://qwertylearner.cn/
 - 实际数据 URL：https://qwertylearner.cn/dicts/CET4_T.json

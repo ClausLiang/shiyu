@@ -18,6 +18,8 @@ const icons = {
   spark: '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   speaker: '<path d="M11 4 6 8H3v8h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+  moon: '<path d="M20 14a8 8 0 0 1-10-10 8.5 8.5 0 1 0 10 10z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
 };
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -92,8 +94,9 @@ function renderShell() {
       </div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><div>学习空间 <span class="slash">/</span> <strong>单词学习</strong></div><div class="topbar-tools"><button class="float-progress" id="float-progress" aria-haspopup="dialog" title="查看章节目录与学习进度"><span class="float-ring" id="float-ring" aria-hidden="true">${icon('grid')}</span><span class="float-copy"><strong id="float-chapter">第 01 章</strong><small id="float-detail">0 / 20 词</small></span></button><button class="save-status" id="save-status" aria-label="进度与备份设置">${icon('check')}进度保存在此浏览器</button></div></header>
+      <header class="topbar"><div>学习空间 <span class="slash">/</span> <strong>单词学习</strong></div><div class="topbar-tools"><button class="float-progress" id="float-progress" aria-haspopup="dialog" title="查看章节目录与学习进度"><span class="float-ring" id="float-ring" aria-hidden="true">${icon('grid')}</span><span class="float-copy"><strong id="float-chapter">第 01 章</strong><small id="float-detail">0 / 20 词</small></span></button><button class="save-status" id="save-status" aria-label="进度与备份设置">${icon('check')}进度保存在此浏览器</button><button type="button" class="theme-toggle" id="theme-toggle" aria-label="深色模式" aria-pressed="${document.documentElement.dataset.theme === 'dark'}" title="切换深色 / 浅色主题">${icon('moon', 'theme-moon')}${icon('sun', 'theme-sun')}<span>深色模式</span></button></div></header>
       <main>
+        <div id="theme-message" class="warning" role="status" hidden></div>
         <div id="words-view">
         <section class="page-heading"><div><div class="eyebrow">A LITTLE EVERY DAY</div><h1>把单词，一点点变成你的。</h1><p>从一个单词开始，让每一次练习都有收获。</p></div><span class="edition">CET-4 学习计划</span></section>
         <section class="course-banner" aria-label="四级词汇学习概览">
@@ -489,6 +492,7 @@ function bindEvents() {
     if (!activeWord) renderChapter(); else updateStats();
   });
   document.addEventListener('keydown', event => {
+    if (event.target.closest?.('#theme-toggle')) return;
     if (activeModule !== 'words') return;
     if (event.key !== 'Tab' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.isComposing) return;

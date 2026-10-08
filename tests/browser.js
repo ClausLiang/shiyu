@@ -1,6 +1,8 @@
 import { emptyProgress, chapterWords, recordAttempt } from '../src/learning.js';
 import { STORAGE_KEY } from '../src/storage.js';
 
+const THEME_KEY = 'shiyu:theme:v1';
+
 const frame = document.querySelector('#app');
 const run = document.querySelector('#run');
 const summary = document.querySelector('#summary');
@@ -34,6 +36,7 @@ run.addEventListener('click', async () => {
   results.replaceChildren();
   summary.textContent = '正在运行…';
   const original = localStorage.getItem(STORAGE_KEY);
+  const originalTheme = localStorage.getItem(THEME_KEY);
   let passed = 0, failed = 0;
   async function test(name, check) {
     const row = document.createElement('li');
@@ -44,7 +47,7 @@ run.addEventListener('click', async () => {
   try {
     const response = await fetch('../public/data/cet4.json');
     const words = await response.json();
-    async function load({ chapter = 1, missing = [], width = 1440, mockSpeech = false } = {}) {
+    async function load({ chapter = 1, missing = [], width = 1440, mockSpeech = false, setupScript = '' } = {}) {
       // 先卸载上一用例，避免它收到测试数据的 storage 事件。
       frame.removeAttribute('srcdoc');
       frame.src = 'about:blank';
@@ -56,9 +59,10 @@ run.addEventListener('click', async () => {
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
       frame.width = String(width);
-      if (mockSpeech) {
+      if (mockSpeech || setupScript) {
         const html = await (await fetch('/')).text();
-        frame.srcdoc = html.replace('<head>', '<head><base href="/"><script>window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };<\/script>');
+        const speechScript = mockSpeech ? 'window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };' : '';
+        frame.srcdoc = html.replace('<head>', `<head><base href="/"><script>${speechScript}${setupScript}<\/script>`);
       } else frame.src = '/';
       await until(() => Boolean($('#practice')));
     }
@@ -232,6 +236,67 @@ run.addEventListener('click', async () => {
       await until(() => $('#sentence-count').textContent === '共 0 句');
       assert($('#sentence-load-message').textContent.includes('还没有收录') && $('#sentence-pagination').hidden, '空数据应有空状态且无分页');
     });
+    for (const width of [1440, 390, 320]) {
+      await test(`${width}px：切换主题保留输入与进度，刷新恢复，语句与弹窗共用主题`, async () => {
+        localStorage.setItem(THEME_KEY, 'light');
+        await load({ width });
+        const before = localStorage.getItem(STORAGE_KEY);
+        activate(0);
+        const input = $('#spelling-input');
+        input.value = 'not submitted';
+        $('#theme-toggle').click();
+        assert(frame.contentDocument.documentElement.dataset.theme === 'dark', '应切换为深色');
+        assert($('#theme-toggle').getAttribute('aria-pressed') === 'true', '应告知深色已启用');
+        assert($('#spelling-input') === input && input.value === 'not submitted', '不能重绘或清空输入');
+        assert(localStorage.getItem(STORAGE_KEY) === before, '主题不应影响单词进度');
+        assert(localStorage.getItem(THEME_KEY) === 'dark', '应保存主题偏好');
+        $('#theme-toggle').focus();
+        const key = new frame.contentWindow.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+        $('#theme-toggle').dispatchEvent(key);
+        assert(!key.defaultPrevented && input.value === 'not submitted', '主题按钮的 Tab 不应提交单词');
+        const rect = $('#theme-toggle').getBoundingClientRect();
+        const status = $('#save-status').getBoundingClientRect();
+        assert(rect.right <= width && rect.left >= status.right, '主题按钮应在顶栏内且不与保存状态重叠');
+        assert(frame.contentDocument.documentElement.scrollWidth <= width, '出现横向滚动');
+        $('#chapter-open').click();
+        assert(frame.contentWindow.getComputedStyle($('#chapter-dialog')).colorScheme === 'dark', '章节弹窗应使用深色');
+        $('#chapter-dialog [data-close]').click();
+        $('#save-status').click();
+        assert(frame.contentWindow.getComputedStyle($('#backup-dialog')).colorScheme === 'dark', '备份弹窗应使用深色');
+        $('#backup-dialog [data-close]').click();
+        await load({ width });
+        assert(frame.contentDocument.documentElement.dataset.theme === 'dark', '刷新应恢复深色');
+        $('[data-module="sentences"]').click();
+        await until(() => Boolean($('.sentence-card')));
+        assert(frame.contentWindow.getComputedStyle($('.sentence-card')).colorScheme === 'dark', '语句应共用深色');
+        $('#theme-toggle').click();
+        assert(frame.contentDocument.documentElement.dataset.theme === 'light', '应能从语句页面切回浅色');
+        assert(localStorage.getItem(THEME_KEY) === 'light', '应保存浅色偏好');
+      });
+    }
+    await test('主题偏好异常回退浅色，同源页面更新与删除偏好同步生效', async () => {
+      localStorage.setItem(THEME_KEY, 'invalid');
+      await load();
+      assert(frame.contentDocument.documentElement.dataset.theme === 'light', '无效偏好应回退浅色');
+      localStorage.setItem(THEME_KEY, 'dark');
+      await until(() => $('#theme-toggle').getAttribute('aria-pressed') === 'true');
+      localStorage.removeItem(THEME_KEY);
+      await until(() => frame.contentDocument.documentElement.dataset.theme === 'light');
+      assert($('#theme-toggle').getAttribute('aria-pressed') === 'false', '删除偏好后按钮应同步');
+    });
+    await test('主题保存失败或存储不可读时仍能切换，并明确提示', async () => {
+      for (const setupScript of [
+        `const setItem = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) { if (key === '${THEME_KEY}') throw new Error('quota'); return setItem.call(this, key, value); };`,
+        `Object.defineProperty(window, 'localStorage', { get() { throw new Error('denied'); } });`,
+      ]) {
+        await load({ setupScript });
+        $('#theme-toggle').click();
+        assert(frame.contentDocument.documentElement.dataset.theme === 'dark', '存储不可用时应能切换');
+        assert(!$('#theme-message').hidden && $('#theme-message').textContent.includes('无法保存'), '应明确提示保存失败');
+        $('[data-module="sentences"]').click();
+        assert(!$('#theme-message').hidden, '切换模块后提示仍应可见');
+      }
+    });
   } catch (error) {
     failed++;
     results.append(Object.assign(document.createElement('li'), { textContent: `测试准备失败：${error.message}`, className: 'fail' }));
@@ -241,6 +306,8 @@ run.addEventListener('click', async () => {
     await until(() => frame.contentDocument?.URL === 'about:blank');
     if (original === null) localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, original);
+    if (originalTheme === null) localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, originalTheme);
     summary.textContent = `${passed} 项通过，${failed} 项失败`;
     run.disabled = false;
   }

@@ -3,11 +3,15 @@
 ## 语句数据
 
 - 文件：`sentences.json`；由用户提供英文原句与中文翻译，按收录顺序保存。
-- 2026-10-08 收录首句：Everything is about people, everything in this life that's worth a damn.
-- 用户提供译文：世间所有值得珍惜的东西，都与人有关。
-- 2026-10-08 收录第二句：You don’t have to believe your life is precious, but all life is precious.
-- 用户提供译文：你不必认为你自己的生命珍贵，但**所有生命都是珍贵的**。
-- 原句及译文按用户提供内容保留；用户未指定作品、作者或出处，不额外推断。
+- 收录记录（2026-10-08 起）：
+  1. Everything is about people, everything in this life that's worth a damn. —— 世间所有值得珍惜的东西，都与人有关。
+  2. You don’t have to believe your life is precious, but all life is precious. —— 你不必认为你自己的生命珍贵，但**所有生命都是珍贵的**。
+  3. Kismet. —— 缘分呐。（原无句末标点，2026-10-09 按用户要求补句号）
+  4. Low key. —— 低调。（原无句末标点，2026-10-09 按用户要求补句号）
+  5. Why the long face? —— 为什么不高兴?
+  6. How would I know? —— 我怎么知道？
+  7. A promise is a promise. —— 说到做到。
+- 原句及译文按用户提供内容保留，标点仅在用户明确要求时调整；用户未指定作品、作者或出处，不额外推断。
 
 ## CET-4 词库来源
 

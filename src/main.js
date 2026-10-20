@@ -42,6 +42,25 @@ function switchModule(module) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+// 弹窗打开时，左右箭头在弹窗内的按钮之间循环移动焦点，不必逐个 Tab。
+function dialogButtons(dialog) {
+  return [...dialog.querySelectorAll('button')].filter(button => !button.disabled && button.getClientRects().length);
+}
+document.addEventListener('keydown', event => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+  const dialog = document.querySelector('dialog[open]');
+  if (!dialog) return;
+  const buttons = dialogButtons(dialog);
+  if (buttons.length < 2) return;
+  const step = event.key === 'ArrowRight' ? 1 : -1;
+  const from = buttons.indexOf(document.activeElement);
+  // 焦点不在按钮上时，右箭头从头开始，左箭头从末尾开始。
+  const target = from < 0 ? (step > 0 ? 0 : buttons.length - 1) : (from + step + buttons.length) % buttons.length;
+  event.preventDefault();
+  buttons[target].focus();
+});
+
 document.querySelectorAll('[data-module]').forEach(button => button.addEventListener('click', () => switchModule(button.dataset.module)));
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 window.addEventListener('pagehide', () => pronunciation.stop());

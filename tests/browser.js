@@ -201,6 +201,47 @@ run.addEventListener('click', async () => {
       press($('#spelling-input'), { key: 'Escape', code: 'Escape' });
       assert(!$('#spelling-input'), '按 Esc 应查看单词');
     });
+    await test('弹窗内左右箭头切换按钮焦点，组合键与关闭后不拦截', async () => {
+      await load();
+      const win = frame.contentWindow;
+      const press = (key, init = {}) => {
+        const event = new win.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+        win.document.activeElement.dispatchEvent(event);
+        return event;
+      };
+      const active = () => win.document.activeElement;
+      $('#save-status').click();
+      const backup = $('#backup-dialog');
+      const close = backup.querySelector('[data-close]');
+      $('#export-progress').focus();
+      press('ArrowRight');
+      assert(active() === $('#import-progress'), '右箭头应移到下一个按钮');
+      press('ArrowRight');
+      assert(active() === close, '末个按钮继续右移应回到第一个');
+      press('ArrowLeft');
+      assert(active() === $('#import-progress'), '左箭头应回到上一个按钮');
+      const combined = press('ArrowRight', { metaKey: true });
+      assert(!combined.defaultPrevented && active() === $('#import-progress'), '组合键不应切换焦点');
+      backup.close();
+      assert(!press('ArrowRight').defaultPrevented, '弹窗关闭后不应拦截左右箭头');
+
+      $('#chapter-open').click();
+      const chapters = [...$('#chapter-picker').children];
+      assert(active() === chapters[0], '章节目录应聚焦当前章节');
+      press('ArrowRight');
+      assert(active() === chapters[1], '章节目录内右箭头应移到下一章');
+      press('ArrowLeft'); press('ArrowLeft');
+      assert(active() === $('#chapter-dialog [data-close]'), '回到首个按钮后再左移应到关闭按钮');
+      $('#chapter-dialog [data-close]').click();
+
+      activate(19); answer(last);
+      assert(isCelebrating() && active() === $('#chapter-done-next'), '庆祝弹窗应聚焦进入下一章');
+      press('ArrowRight');
+      assert(active() === $('#chapter-done-review'), '庆祝弹窗内右箭头应切换按钮');
+      press('ArrowLeft');
+      assert(active() === $('#chapter-done-next'), '庆祝弹窗内左箭头应切回上一个按钮');
+      $('#chapter-done-close').click();
+    });
     for (const width of [1440, 390]) {
       await test(`${width}px：庆祝后复习首词，输入框避开顶栏且可点击`, async () => {
         await load({ width });

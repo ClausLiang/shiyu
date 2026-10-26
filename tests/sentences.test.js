@@ -21,7 +21,7 @@ test('语句校验拒绝无效内容，保留原句标点与译文', async () =>
   const data = JSON.parse(await readFile(new URL('../public/data/sentences.json', import.meta.url), 'utf8'));
   assert.equal(validateSentences(data), data);
   assert.equal(data[0].english, "Everything is about people, everything in this life that's worth a damn.");
-  assert.equal(data[0].chinese, '世间所有值得珍惜的东西，都与人有关。');
+  assert.equal(data[0].chinese, '世间所有值得珍惜的东西，都与人有关。（等价于 **Everything in this life that\'s worth a damn is about people**）');
   for (const invalid of [null, {}, [null], [{}], [{ english: 'Hi', chinese: ' ' }], [{ english: 1, chinese: '你好' }]]) {
     assert.throws(() => validateSentences(invalid), /语句数据格式错误/);
   }

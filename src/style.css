@@ -89,4 +89,22 @@ html{scroll-padding-top:83px}
 [data-theme="dark"] dialog{box-shadow:0 25px 100px #0008}
 [data-theme="dark"] dialog::backdrop{background:#08060eb3}
 [data-theme="dark"] .slash{color:#847b95}
+[data-theme="dark"] :is(.sidebar-toggle:hover,html[data-sidebar="collapsed"] .sidebar-toggle){background:var(--dark-accent);border-color:#4a4359;color:var(--purple)}
 [data-theme="dark"] ::selection{background:#685597;color:#fff}
+
+/* 顶栏折叠按钮：位于“学习空间”左侧，收起左侧导航让学习区占满窗口；
+   手机端导航改为顶部横排，不提供折叠，因此按钮只在 621px 以上出现。 */
+.topbar-title{display:flex;align-items:center;gap:10px;min-width:0}
+.sidebar-toggle{display:none}
+@media(min-width:621px){
+  .sidebar-toggle{display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-left:-6px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#8f94a3}
+  .sidebar-toggle:hover{border-color:#e4dff3;background:#f2eefc;color:var(--purple)}
+  .sidebar-toggle .icon{width:18px;height:18px;transition:transform .22s ease}
+  html[data-sidebar-anim="on"] .sidebar{transition:transform .22s ease}
+  html[data-sidebar-anim="on"] .workspace{transition:margin-left .22s ease}
+  html[data-sidebar="collapsed"] .sidebar{transform:translateX(-100%)}
+  html[data-sidebar="collapsed"] .workspace{margin-left:0}
+  html[data-sidebar="collapsed"] .sidebar-toggle{background:#f2eefc;border-color:#e4dff3;color:var(--purple)}
+  html[data-sidebar="collapsed"] .sidebar-toggle .icon{transform:scaleX(-1)}
+  html[data-sidebar="collapsed"] .skip-link{left:16px}
+}

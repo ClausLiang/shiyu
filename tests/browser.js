@@ -2,6 +2,7 @@ import { emptyProgress, chapterWords, recordAttempt } from '../src/learning.js';
 import { STORAGE_KEY } from '../src/storage.js';
 
 const THEME_KEY = 'shiyu:theme:v1';
+const SIDEBAR_KEY = 'shiyu:sidebar:v1';
 
 const frame = document.querySelector('#app');
 const run = document.querySelector('#run');
@@ -37,6 +38,7 @@ run.addEventListener('click', async () => {
   summary.textContent = '正在运行…';
   const original = localStorage.getItem(STORAGE_KEY);
   const originalTheme = localStorage.getItem(THEME_KEY);
+  const originalSidebar = localStorage.getItem(SIDEBAR_KEY);
   let passed = 0, failed = 0;
   async function test(name, check) {
     const row = document.createElement('li');
@@ -291,7 +293,8 @@ run.addEventListener('click', async () => {
         assert($('#float-progress').hidden && $('#save-status').hidden, '应隐藏单词进度控件');
         assert(!$('#spelling-input'), '切换模块应退出拼写');
         assert($('.sentence-english [lang="en"]').textContent === "Everything is about people, everything in this life that's worth a damn.", '原句应完整保留');
-        assert($('.sentence-chinese').textContent === '世间所有值得珍惜的东西，都与人有关。', '译文应完整保留');
+        assert($('.sentence-chinese').textContent.startsWith('世间所有值得珍惜的东西，都与人有关。'), '译文应完整保留');
+        assert($('.sentence-chinese strong').textContent === "Everything in this life that's worth a damn is about people", '译文中的 **文字** 应显示为加粗，不保留星号');
         assert($('.sentence-english').lastElementChild.matches('.sentence-pronounce'), '发音按钮应在英文原句后');
         assert($('#sentence-previous').disabled && $('#sentence-next').disabled, '不足一页时两端禁用');
         const event = new frame.contentWindow.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
@@ -424,6 +427,34 @@ run.addEventListener('click', async () => {
         assert(!$('#theme-message').hidden, '切换模块后提示仍应可见');
       }
     });
+    await test('PC 折叠侧栏让学习区占满窗口，偏好保存且手机宽度隐藏按钮', async () => {
+      localStorage.removeItem(SIDEBAR_KEY);
+      await load({ width: 1440 });
+      const toggle = $('#sidebar-toggle');
+      const title = $('.topbar-crumb');
+      assert(toggle.getAttribute('aria-expanded') === 'true' && $('.workspace').getBoundingClientRect().left > 200, '默认应展开侧栏');
+      assert(toggle.getBoundingClientRect().right <= title.getBoundingClientRect().left, '按钮应在“学习空间”左侧');
+      $('#backup-open').focus();
+      toggle.click();
+      assert(toggle.getAttribute('aria-expanded') === 'false' && $('#sidebar').inert, '折叠后应告知状态并让侧栏不再接收焦点');
+      assert(frame.contentDocument.activeElement === toggle, '焦点应从侧栏移回按钮');
+      assert(localStorage.getItem(SIDEBAR_KEY) === 'collapsed', '应保存折叠偏好');
+      await until(() => $('.workspace').getBoundingClientRect().left === 0);
+      assert($('#sidebar').getBoundingClientRect().right <= 0, '侧栏应移出视口');
+      assert(frame.contentDocument.documentElement.scrollWidth <= 1440, '折叠后不应出现横向滚动');
+      toggle.click();
+      await until(() => $('.workspace').getBoundingClientRect().left > 200);
+      assert(toggle.getAttribute('aria-expanded') === 'true' && !$('#sidebar').inert, '应能再次展开');
+      assert(localStorage.getItem(SIDEBAR_KEY) === 'expanded', '展开状态应保存');
+      toggle.click();
+      await until(() => $('.workspace').getBoundingClientRect().left === 0);
+      await load({ width: 1440 });
+      assert(frame.contentDocument.documentElement.dataset.sidebar === 'collapsed', '刷新应恢复折叠状态');
+      assert($('#sidebar-toggle').getAttribute('aria-expanded') === 'false' && $('#sidebar').inert, '刷新后按钮与侧栏状态一致');
+      await load({ width: 390 });
+      assert(frame.contentWindow.getComputedStyle($('#sidebar-toggle')).display === 'none', '手机宽度不提供折叠按钮');
+      assert(frame.contentDocument.documentElement.scrollWidth <= 390 && $('.sidebar').getBoundingClientRect().left === 0, '手机端侧栏仍应完整显示');
+    });
   } catch (error) {
     failed++;
     results.append(Object.assign(document.createElement('li'), { textContent: `测试准备失败：${error.message}`, className: 'fail' }));
@@ -435,6 +466,8 @@ run.addEventListener('click', async () => {
     else localStorage.setItem(STORAGE_KEY, original);
     if (originalTheme === null) localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, originalTheme);
+    if (originalSidebar === null) localStorage.removeItem(SIDEBAR_KEY);
+    else localStorage.setItem(SIDEBAR_KEY, originalSidebar);
     summary.textContent = `${passed} 项通过，${failed} 项失败`;
     run.disabled = false;
   }
